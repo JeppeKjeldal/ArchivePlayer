@@ -1,8 +1,45 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<!-- Hero Section -->
+<div class="relative h-[70vh] w-full bg-gradient-to-b from-netflix-dark to-netflix-black">
+    <div class="absolute inset-0 flex items-center justify-center">
+        <div class="text-center px-8">
+            <h1 class="text-5xl font-bold mb-4">Welcome to ArchivePlayer</h1>
+            <p class="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
+                Stream classic cartoons, anime, and public domain movies directly from Archive.org.
+            </p>
+            <div class="flex gap-4 justify-center">
+                <a href="/Search" class="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition">
+                    Add Source
+                </a>
+                <button class="bg-gray-600 text-white px-8 py-3 rounded font-semibold hover:bg-gray-500 transition">
+                    More Info
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- My Library Section -->
+<div class="px-8 py-12">
+    <h2 class="text-2xl font-semibold mb-6">My Library</h2>
+    
+    <!-- Empty state message -->
+    <div class="bg-netflix-dark rounded-lg p-12 text-center">
+        <p class="text-gray-400 text-lg">Your library is empty.</p>
+        <p class="text-gray-500 mt-2">Add some content to get started!</p>
+        <a href="/Search" class="inline-block mt-6 bg-netflix-red text-white px-6 py-2 rounded hover:bg-red-700 transition">
+            Browse Archive.org
+        </a>
+    </div>
+    
+    <!-- Grid placeholder (will be populated later) -->
+    <!--
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div class="aspect-video bg-netflix-dark rounded hover:scale-105 transition cursor-pointer"></div>
+        <div class="aspect-video bg-netflix-dark rounded hover:scale-105 transition cursor-pointer"></div>
+    </div>
+    -->
 </div>
