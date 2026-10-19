@@ -1,0 +1,32 @@
+﻿@model ArchivePlayer.Models.SearchInputModel
+
+@{
+    ViewData["Title"] = "Add Source";
+}
+
+<div class="max-w-2xl mx-auto mt-12 px-4">
+    <h1 class="text-3xl font-bold mb-2">Add Source to Library</h1>
+    <p class="text-gray-400 mb-8">Paste an Archive.org URL or identifier</p>
+
+    <form asp-action="AddSource" method="post">
+        <div class="space-y-4">
+            <div>
+                <label asp-for="InputString" class="block text-sm font-medium text-gray-300 mb-2"></label>
+                <input asp-for="InputString" 
+                       class="w-full bg-netflix-dark border border-gray-700 text-white rounded-md p-3 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red transition placeholder-gray-600" 
+                       placeholder="https://archive.org/details/..." />
+                <span asp-validation-for="InputString" class="text-red-500 text-sm mt-1 block"></span>
+            </div>
+            
+            <button type="submit" class="bg-netflix-red text-white font-semibold py-3 px-8 rounded-md hover:bg-red-700 transition duration-200">
+                Add to Library
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
