@@ -46,9 +46,26 @@
                 <li><a href="/Library" class="hover:text-gray-300 transition">My Library</a></li>
             </ul>
         </div>
+
         <div class="flex items-center gap-4">
-            <!-- Profile placeholder -->
-            <div class="h-8 w-8 rounded bg-netflix-gray cursor-pointer"></div>
+            @if (User.Identity.IsAuthenticated)
+            {
+                <!-- User is logged in -->
+                <span class="text-gray-300 text-sm">@User.Identity.Name</span>
+                <form asp-controller="Account" asp-action="Logout" method="post" class="inline">
+                    <button type="submit" class="text-gray-300 hover:text-white text-sm transition">
+                        Logout
+                    </button>
+                </form>
+            }
+            else
+            {
+                <!-- User is NOT logged in -->
+                <a href="/Account/Login" class="text-gray-300 hover:text-white text-sm transition">Login</a>
+                <a href="/Account/Register" class="bg-netflix-red text-white px-4 py-2 rounded text-sm font-semibold hover:bg-red-700 transition">
+                    Register
+                </a>
+            }
         </div>
     </nav>
 

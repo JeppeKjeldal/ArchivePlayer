@@ -1,0 +1,54 @@
+﻿@model ArchivePlayer.Models.LoginViewModel
+
+@{
+    ViewData["Title"] = "Login";
+}
+
+<div class="max-w-md mx-auto mt-12 px-4">
+    <h1 class="text-3xl font-bold mb-2">Sign In</h1>
+    <p class="text-gray-400 mb-8">Welcome back to ArchivePlayer</p>
+
+    <form asp-action="Login" method="post" class="space-y-6">
+        
+        <!-- Email -->
+        <div>
+            <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2"></label>
+            <input asp-for="Email" 
+                   class="w-full bg-netflix-dark border border-gray-700 text-white rounded-md p-3 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red transition" 
+                   placeholder="you@example.com" />
+            <span asp-validation-for="Email" class="text-red-500 text-sm mt-1 block"></span>
+        </div>
+
+        <!-- Password -->
+        <div>
+            <label asp-for="Password" class="block text-sm font-medium text-gray-300 mb-2"></label>
+            <input asp-for="Password" 
+                   class="w-full bg-netflix-dark border border-gray-700 text-white rounded-md p-3 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red transition" 
+                   placeholder="••••••••" />
+            <span asp-validation-for="Password" class="text-red-500 text-sm mt-1 block"></span>
+        </div>
+
+        <!-- Remember Me -->
+        <div class="flex items-center">
+            <input asp-for="RememberMe" class="h-4 w-4 text-netflix-red focus:ring-netflix-red border-gray-700 rounded bg-netflix-dark" />
+            <label asp-for="RememberMe" class="ml-2 block text-sm text-gray-300"></label>
+        </div>
+
+        <!-- Validation Summary -->
+        <div asp-validation-summary="All" class="text-red-500 text-sm"></div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="w-full bg-netflix-red text-white font-semibold py-3 px-8 rounded-md hover:bg-red-700 transition duration-200">
+            Sign In
+        </button>
+
+    </form>
+
+    <p class="text-gray-400 text-sm mt-6 text-center">
+        Don't have an account? <a href="/Account/Register" class="text-white hover:text-netflix-red transition">Register</a>
+    </p>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

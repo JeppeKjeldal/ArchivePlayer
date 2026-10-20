@@ -1,0 +1,59 @@
+﻿@model ArchivePlayer.Models.RegisterViewModel
+
+@{
+    ViewData["Title"] = "Register";
+}
+
+<div class="max-w-md mx-auto mt-12 px-4">
+    <h1 class="text-3xl font-bold mb-2">Create Your Account</h1>
+    <p class="text-gray-400 mb-8">Join ArchivePlayer and start building your library</p>
+
+    <form asp-action="Register" method="post" class="space-y-6">
+
+        <!-- Email -->
+        <div>
+            <label asp-for="Email" class="block text-sm font-medium text-gray-300 mb-2"></label>
+            <input asp-for="Email"
+                   class="w-full bg-netflix-dark border border-gray-700 text-white rounded-md p-3 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red transition"
+                   placeholder="you@example.com" />
+            <span asp-validation-for="Email" class="text-red-500 text-sm mt-1 block"></span>
+        </div>
+
+        <!-- Password -->
+        <div>
+            <label asp-for="Password" class="block text-sm font-medium text-gray-300 mb-2"></label>
+            <input asp-for="Password"
+                   class="w-full bg-netflix-dark border border-gray-700 text-white rounded-md p-3 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red transition"
+                   placeholder="••••••••" />
+            <span asp-validation-for="Password" class="text-red-500 text-sm mt-1 block"></span>
+        </div>
+
+        <!-- Confirm Password -->
+        <div>
+            <label asp-for="ConfirmPassword" class="block text-sm font-medium text-gray-300 mb-2"></label>
+            <input asp-for="ConfirmPassword"
+                   class="w-full bg-netflix-dark border border-gray-700 text-white rounded-md p-3 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red transition"
+                   placeholder="••••••••" />
+            <span asp-validation-for="ConfirmPassword" class="text-red-500 text-sm mt-1 block"></span>
+        </div>
+
+        <!-- Validation Summary (Shows Identity errors like "Password too weak") -->
+        <div asp-validation-summary="All" class="text-red-500 text-sm"></div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="w-full bg-netflix-red text-white font-semibold py-3 px-8 rounded-md hover:bg-red-700 transition duration-200">
+            Create Account
+        </button>
+
+    </form>
+
+    <p class="text-gray-400 text-sm mt-6 text-center">
+        Already have an account? <a href="/Account/Login" class="text-white hover:text-netflix-red transition">Sign in</a>
+    </p>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

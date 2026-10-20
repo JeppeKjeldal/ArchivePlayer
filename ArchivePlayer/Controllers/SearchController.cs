@@ -3,17 +3,21 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ArchivePlayer.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 
 namespace ArchivePlayer.Controllers
 {
-    //[Authorize]
+    [Authorize]
     public class SearchController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public SearchController(ApplicationDbContext context)
+
+        public SearchController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         [HttpGet]
@@ -47,7 +51,9 @@ namespace ArchivePlayer.Controllers
 
             var mediaItem = await _context.MediaItems.FirstOrDefaultAsync(m => m.Identifier == identifier);
 
-            //await CreateNewUserMediaItem(mediaItem);
+            var user = await _userManager.GetUserAsync(User);
+
+            await CreateNewUserMediaItem(mediaItem, user.Id);
 
             return RedirectToAction("Index", "Home");
         }
@@ -71,11 +77,11 @@ namespace ArchivePlayer.Controllers
             }
         }
 
-        private async Task CreateNewUserMediaItem(MediaItem? mediaItem)
+        private async Task CreateNewUserMediaItem(MediaItem? mediaItem, string userId)
         {
             var newUserMediaItem = new UserMediaItem
             {
-                UserId = "demo-user",
+                UserId = userId,
                 MediaItemId = mediaItem!.Id,
                 CategoryName = "Uncategorized"
             };

@@ -15,6 +15,12 @@ options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => 
 options.SignIn.RequireConfirmedAccount = false).AddEntityFrameworkStores<ApplicationDbContext>();
 
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.LogoutPath = "/Account/Logout";
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
