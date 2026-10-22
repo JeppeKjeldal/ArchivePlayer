@@ -1,4 +1,7 @@
 using ArchivePlayer.Models;
+using ArchivePlayer.Data;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 
@@ -6,9 +9,29 @@ namespace ArchivePlayer.Controllers
 {
     public class HomeController : Controller
     {
-        public IActionResult Index()
+        private readonly ApplicationDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
+
+        public HomeController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
-            return View();
+            _context = context;
+            _userManager = userManager;
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+
+            if (currentUser != null)
+            {
+                var library = await _context.UserMediaItems.Include(umi => umi.MediaItem)
+                .Where(umi => umi.UserId == currentUser.Id)
+                .ToListAsync();
+
+                return View(library);
+            }
+
+            return View(new List<UserMediaItem>());
         }
 
         public IActionResult Privacy()
