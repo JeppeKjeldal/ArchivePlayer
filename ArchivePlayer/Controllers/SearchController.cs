@@ -1,9 +1,11 @@
-﻿using ArchivePlayer.Models;
+﻿using ArchivePlayer.Data;
+using ArchivePlayer.Models;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using ArchivePlayer.Data;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace ArchivePlayer.Controllers
 {
@@ -12,12 +14,15 @@ namespace ArchivePlayer.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly HttpClient _httpClient;
 
 
-        public SearchController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+
+        public SearchController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, HttpClient httpClient)
         {
             _context = context;
             _userManager = userManager;
+            _httpClient = httpClient;
         }
 
         [HttpGet]
@@ -64,16 +69,39 @@ namespace ArchivePlayer.Controllers
 
             if (!exists)
             {
+                string mediaType = "Unknown";
+
+                try
+                {
+                    var metadataUrl = $"https://archive.org/metadata/{identifier}";
+                    var response = await _httpClient.GetAsync(metadataUrl);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync();
+                        var doc = JsonDocument.Parse(json);
+
+                        mediaType = doc.RootElement
+                            .GetProperty("metadata")
+                            .GetProperty("mediatype")
+                            .GetString() ?? "Unknown";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to fetch metadata for {identifier}: {ex.Message}");
+                }
+
                 var newMediaItem = new MediaItem
                 {
                     Identifier = identifier,
                     Title = identifier,
-                    MediaType = "Movie",
+                    MediaType = mediaType,
                     ThumbnailUrl = $"https://archive.org/services/img/{identifier}"
                 };
 
                 _context.MediaItems.Add(newMediaItem);
-
+                Console.WriteLine($"[DEBUG] Saved MediaItem: {identifier} with MediaType: {mediaType}");
                 await _context.SaveChangesAsync();
             }
         }
