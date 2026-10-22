@@ -28,28 +28,28 @@
 <div class="px-8 py-12">
     <h2 class="text-2xl font-semibold mb-6">My Library</h2>
 
-    @* Check if the user actually has items in their library *@
     @if (Model != null && Model.Count > 0)
     {
         <!-- Grid of saved items -->
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             @foreach (var item in Model)
             {
-                <!-- Functionality first: a simple card showing the data -->
-                <div class="aspect-video bg-netflix-dark rounded hover:scale-105 transition cursor-pointer p-4 flex flex-col justify-center items-center text-center border border-gray-800">
-                    <h3 class="text-white font-semibold truncate w-full" title="@item.MediaItem.Title">
-                        @item.MediaItem.Title
-                    </h3>
-                    <p class="text-gray-400 text-sm mt-1">
-                        @item.CategoryName
-                    </p>
-                </div>
+                <a href="/Watch/@item.MediaItem.Identifier" class="block">
+                    <div class="aspect-video bg-netflix-dark rounded hover:scale-105 transition cursor-pointer p-4 flex flex-col justify-center items-center text-center border border-gray-800">
+                        <h3 class="text-white font-semibold truncate w-full" title="@item.MediaItem.Title">
+                            @item.MediaItem.Title
+                        </h3>
+                        <p class="text-gray-400 text-sm mt-1">
+                            @item.CategoryName
+                        </p>
+                    </div>
+                </a>
             }
         </div>
     }
     else
     {
-        <!-- Empty state message (only shows if Model is null or empty) -->
+        <!-- Empty state message -->
         <div class="bg-netflix-dark rounded-lg p-12 text-center border border-gray-800">
             <p class="text-gray-400 text-lg">Your library is empty.</p>
             <p class="text-gray-500 mt-2">Add some content to get started!</p>
