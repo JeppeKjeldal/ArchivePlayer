@@ -68,7 +68,8 @@ namespace ArchivePlayer.Controllers
                 {
                     Identifier = identifier,
                     Title = identifier,
-                    MediaType = "Movie"
+                    MediaType = "Movie",
+                    ThumbnailUrl = $"https://archive.org/services/img/{identifier}"
                 };
 
                 _context.MediaItems.Add(newMediaItem);
