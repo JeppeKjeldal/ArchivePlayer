@@ -65,11 +65,17 @@ namespace ArchivePlayer.Controllers
 
         private async Task CreateNewMediaItem(string identifier)
         {
+            Console.WriteLine($"[DEBUG] CreateNewMediaItem called for: {identifier}");
+
             bool exists = await _context.MediaItems.AnyAsync(m => m.Identifier == identifier);
+            Console.WriteLine($"[DEBUG] Exists check result: {exists}");
 
             if (!exists)
             {
+                Console.WriteLine($"[DEBUG] Item does not exist, fetching metadata...");
+
                 string mediaType = "Unknown";
+                string title = identifier;
 
                 try
                 {
@@ -81,10 +87,11 @@ namespace ArchivePlayer.Controllers
                         var json = await response.Content.ReadAsStringAsync();
                         var doc = JsonDocument.Parse(json);
 
-                        mediaType = doc.RootElement
-                            .GetProperty("metadata")
-                            .GetProperty("mediatype")
-                            .GetString() ?? "Unknown";
+                        var metadata = doc.RootElement.GetProperty("metadata");
+
+                        mediaType = metadata.GetProperty("mediatype").GetString() ?? "Unknown";
+
+                        title = metadata.GetProperty("title").GetString() ?? identifier;
                     }
                 }
                 catch (Exception ex)
@@ -95,14 +102,20 @@ namespace ArchivePlayer.Controllers
                 var newMediaItem = new MediaItem
                 {
                     Identifier = identifier,
-                    Title = identifier,
+                    Title = title,
                     MediaType = mediaType,
                     ThumbnailUrl = $"https://archive.org/services/img/{identifier}"
                 };
 
                 _context.MediaItems.Add(newMediaItem);
-                Console.WriteLine($"[DEBUG] Saved MediaItem: {identifier} with MediaType: {mediaType}");
+
+                Console.WriteLine($"[DEBUG] Saved MediaItem: {identifier} with Title: '{title}' and MediaType: {mediaType}");
+
                 await _context.SaveChangesAsync();
+            }
+            else
+            {
+                Console.WriteLine($"[DEBUG] Item already exists, skipping creation");
             }
         }
 
