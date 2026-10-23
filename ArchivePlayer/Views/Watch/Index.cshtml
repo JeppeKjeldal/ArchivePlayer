@@ -52,89 +52,100 @@
                 </select>
             </div>
 
-            <!-- Episodes Grid -->
-            <div id="episodesContainer" class="space-y-2 max-h-96 overflow-y-auto">
-                @foreach (var file in videoFiles)
-                {
-                    <div class="episode-item flex items-center p-3 rounded hover:bg-gray-800 cursor-pointer transition border border-transparent hover:border-gray-700" data-filename="@file">
-                        <div class="flex-1">
-                            <p class="text-white font-medium">@file</p>
-                        </div>
-                    </div>
-                }
+            <!-- Episodes Horizontal Slider -->
+            <div id="episodesContainer" class="flex overflow-x-auto gap-3 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
+                <!-- Episodes will be populated by JavaScript -->
             </div>
         </div>
 
         <script>
-    const episodes = @Html.Raw(Json.Serialize(videoFiles));
-    const seasonMap = {};
+            // Parse episodes and group by season
+            const episodes = @Html.Raw(Json.Serialize(videoFiles));
+            const seasonMap = {};
 
-    episodes.forEach(file => {
-        const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i);
-        const season = seasonMatch ? `Season ${seasonMatch[1].padStart(2, '0')}` : 'Other';
-        
-        if (!seasonMap[season]) {
-            seasonMap[season] = [];
-        }
-        seasonMap[season].push(file);
-    });
-
-    const seasonSelect = document.getElementById('seasonSelect');
-    Object.keys(seasonMap).sort().forEach(season => {
-        const option = document.createElement('option');
-        option.value = season;
-        option.textContent = `${season} (${seasonMap[season].length} episodes)`;
-        seasonSelect.appendChild(option);
-    });
-
-    let videoMode = false;
-
-    seasonSelect.addEventListener('change', function() {
-        const selectedSeason = this.value;
-        const episodesContainer = document.getElementById('episodesContainer');
-        
-        episodesContainer.innerHTML = '';
-        
-        const filesToShow = selectedSeason === 'all' 
-            ? episodes 
-            : seasonMap[selectedSeason] || [];
-
-        filesToShow.forEach(file => {
-            const div = document.createElement('div');
-            div.className = 'episode-item flex items-center p-3 rounded hover:bg-gray-800 cursor-pointer transition border border-transparent hover:border-gray-700';
-            div.setAttribute('data-filename', file);
-            div.innerHTML = `<div class="flex-1"><p class="text-white font-medium">${file}</p></div>`;
-            
-            div.addEventListener('click', function() {
-                const filename = this.getAttribute('data-filename');
-                const identifier = '@(Model?.Identifier)';
-                const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
+            episodes.forEach(file => {
+                // Try to extract season number from filename
+                const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i) || file.match(/(\d+)x\d+/i);
+                const season = seasonMatch ? `Season ${seasonMatch[1].padStart(2, '0')}` : 'Other';
                 
-                const playerContainer = document.getElementById('videoPlayer').parentElement;
-                
-                if (!videoMode) {
-                    playerContainer.innerHTML = `
-                        <video 
-                            id="videoPlayer"
-                            controls 
-                            autoplay
-                            class="w-full h-full">
-                        </video>
-                    `;
-                    videoMode = true;
+                if (!seasonMap[season]) {
+                    seasonMap[season] = [];
                 }
-                
-                const videoElement = document.getElementById('videoPlayer');
-                videoElement.src = newSrc;
-                videoElement.load();
-                videoElement.play();
+                seasonMap[season].push(file);
             });
-            
-            episodesContainer.appendChild(div);
-        });
-    });
 
-    seasonSelect.dispatchEvent(new Event('change'));
-</script>
+            // Populate season dropdown
+            const seasonSelect = document.getElementById('seasonSelect');
+            Object.keys(seasonMap).sort().forEach(season => {
+                const option = document.createElement('option');
+                option.value = season;
+                option.textContent = `${season} (${seasonMap[season].length} episodes)`;
+                seasonSelect.appendChild(option);
+            });
+
+            // Track if we've switched to video mode yet
+            let videoMode = false;
+
+            // Filter episodes by season
+            seasonSelect.addEventListener('change', function() {
+                const selectedSeason = this.value;
+                const episodesContainer = document.getElementById('episodesContainer');
+                
+                episodesContainer.innerHTML = '';
+                
+                // FIXED: Only show episodes from the selected season
+                const filesToShow = selectedSeason === 'all' 
+                    ? episodes 
+                    : (seasonMap[selectedSeason] || []);
+
+                filesToShow.forEach(file => {
+                    const div = document.createElement('div');
+                    div.className = 'flex-shrink-0 w-64 bg-gray-800 rounded-lg p-4 hover:bg-gray-700 cursor-pointer transition border border-gray-700 hover:border-netflix-red';
+                    div.setAttribute('data-filename', file);
+                    
+                    // Extract episode number if possible
+                    const epMatch = file.match(/E(\d+)/i) || file.match(/Ep(?:isode)?\s*(\d+)/i) || file.match(/\d+x(\d+)/i);
+                    const epNum = epMatch ? epMatch[1] : '';
+                    const displayName = epNum ? `Episode ${epNum}` : file;
+                    
+                    div.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-white font-semibold text-sm truncate">${displayName}</p>
+                            <p class="text-gray-400 text-xs mt-1 truncate" title="${file}">${file}</p>
+                        </div>
+                    `;
+                    
+                    div.addEventListener('click', function() {
+                        const filename = this.getAttribute('data-filename');
+                        const identifier = '@(Model?.Identifier)';
+                        const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
+                        
+                        const playerContainer = document.getElementById('videoPlayer').parentElement;
+                        
+                        if (!videoMode) {
+                            playerContainer.innerHTML = `
+                                <video 
+                                    id="videoPlayer"
+                                    controls 
+                                    autoplay
+                                    class="w-full h-full">
+                                </video>
+                            `;
+                            videoMode = true;
+                        }
+                        
+                        const videoElement = document.getElementById('videoPlayer');
+                        videoElement.src = newSrc;
+                        videoElement.load();
+                        videoElement.play();
+                    });
+                    
+                    episodesContainer.appendChild(div);
+                });
+            });
+
+            // Initial load - show all episodes
+            seasonSelect.dispatchEvent(new Event('change'));
+        </script>
     }
 </div>
