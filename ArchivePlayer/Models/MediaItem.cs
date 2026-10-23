@@ -15,4 +15,10 @@ public class MediaItem
     public string? ThumbnailUrl { get; set; }
 
     public string MediaType { get; set; }
+
+    public string? TMDBPosterUrl { get; set; }
+
+    public int? TMDBId { get; set; }
+
+    public string? TMDBMediaType { get; set; }
 }

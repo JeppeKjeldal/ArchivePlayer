@@ -104,6 +104,15 @@ namespace ArchivePlayer.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("TMDBId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TMDBMediaType")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TMDBPosterUrl")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ThumbnailUrl")
                         .HasColumnType("TEXT");
 

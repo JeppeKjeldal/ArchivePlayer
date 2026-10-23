@@ -1,8 +1,10 @@
 ﻿@model ArchivePlayer.Models.MediaItem
+@using ArchivePlayer.Services
 
 @{
     ViewData["Title"] = Model?.Title ?? "Watch";
     var videoFiles = ViewBag.VideoFiles as List<string> ?? new List<string>();
+    var episodeThumbnails = ViewBag.EpisodeThumbnails as List<TMDBEpisodeInfo>;
     var hasMultipleFiles = videoFiles.Count > 1;
 }
 
@@ -59,22 +61,42 @@
         </div>
 
         <script>
-            // Parse episodes and group by season
             const episodes = @Html.Raw(Json.Serialize(videoFiles));
+            const episodeThumbnails = @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TMDBEpisodeInfo>()));
             const seasonMap = {};
 
-            episodes.forEach(file => {
-                // Try to extract season number from filename
+            episodes.forEach((file, index) => {
                 const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i) || file.match(/(\d+)x\d+/i);
                 const season = seasonMatch ? `Season ${seasonMatch[1].padStart(2, '0')}` : 'Other';
                 
                 if (!seasonMap[season]) {
                     seasonMap[season] = [];
                 }
-                seasonMap[season].push(file);
+                
+                // Try to match with TMDB episode data
+                let thumbnailUrl = null;
+                let episodeName = file;
+                
+                const epMatch = file.match(/E(\d+)/i) || file.match(/Ep(?:isode)?\s*(\d+)/i) || file.match(/\d+x(\d+)/i);
+                const epNum = epMatch ? parseInt(epMatch[1]) : null;
+                const seasonNum = seasonMatch ? parseInt(seasonMatch[1]) : null;
+                
+                if (seasonNum && epNum && episodeThumbnails.length > 0) {
+                    const tmdbEp = episodeThumbnails.find(e => e.seasonNumber === seasonNum && e.episodeNumber === epNum);
+                    if (tmdbEp) {
+                        thumbnailUrl = tmdbEp.stillUrl;
+                        episodeName = tmdbEp.name || file;
+                    }
+                }
+                
+                seasonMap[season].push({
+                    filename: file,
+                    thumbnail: thumbnailUrl,
+                    name: episodeName,
+                    episodeNum: epNum
+                });
             });
 
-            // Populate season dropdown
             const seasonSelect = document.getElementById('seasonSelect');
             Object.keys(seasonMap).sort().forEach(season => {
                 const option = document.createElement('option');
@@ -83,35 +105,40 @@
                 seasonSelect.appendChild(option);
             });
 
-            // Track if we've switched to video mode yet
             let videoMode = false;
 
-            // Filter episodes by season
             seasonSelect.addEventListener('change', function() {
                 const selectedSeason = this.value;
                 const episodesContainer = document.getElementById('episodesContainer');
                 
                 episodesContainer.innerHTML = '';
                 
-                // FIXED: Only show episodes from the selected season
-                const filesToShow = selectedSeason === 'all' 
-                    ? episodes 
+                const episodesToShow = selectedSeason === 'all' 
+                    ? Object.values(seasonMap).flat()
                     : (seasonMap[selectedSeason] || []);
 
-                filesToShow.forEach(file => {
+                episodesToShow.forEach(ep => {
                     const div = document.createElement('div');
-                    div.className = 'flex-shrink-0 w-64 bg-gray-800 rounded-lg p-4 hover:bg-gray-700 cursor-pointer transition border border-gray-700 hover:border-netflix-red';
-                    div.setAttribute('data-filename', file);
+                    div.className = 'flex-shrink-0 w-64 bg-gray-800 rounded-lg overflow-hidden hover:scale-105 cursor-pointer transition border border-gray-700 hover:border-netflix-red';
+                    div.setAttribute('data-filename', ep.filename);
                     
-                    // Extract episode number if possible
-                    const epMatch = file.match(/E(\d+)/i) || file.match(/Ep(?:isode)?\s*(\d+)/i) || file.match(/\d+x(\d+)/i);
-                    const epNum = epMatch ? epMatch[1] : '';
-                    const displayName = epNum ? `Episode ${epNum}` : file;
+                    const displayName = ep.episodeNum ? `Episode ${ep.episodeNum}` : ep.name;
                     
                     div.innerHTML = `
-                        <div class="text-center">
+                        ${ep.thumbnail ? `
+                            <div class="aspect-video bg-black">
+                                <img src="${ep.thumbnail}" alt="${ep.name}" class="w-full h-full object-cover" />
+                            </div>
+                        ` : `
+                            <div class="aspect-video bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4zm2 0h1V9h-1v2zm1-4V5h-1v2h1zM5 5v2H4V5h1zm-1 4h1v2H4V9zm0 4h1v2H4v-2z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        `}
+                        <div class="p-3 bg-gray-900">
                             <p class="text-white font-semibold text-sm truncate">${displayName}</p>
-                            <p class="text-gray-400 text-xs mt-1 truncate" title="${file}">${file}</p>
+                            <p class="text-gray-400 text-xs mt-1 truncate" title="${ep.filename}">${ep.name}</p>
                         </div>
                     `;
                     
@@ -144,7 +171,6 @@
                 });
             });
 
-            // Initial load - show all episodes
             seasonSelect.dispatchEvent(new Event('change'));
         </script>
     }

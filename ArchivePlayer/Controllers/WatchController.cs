@@ -1,5 +1,6 @@
 ﻿using ArchivePlayer.Data;
 using ArchivePlayer.Models;
+using ArchivePlayer.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,11 +14,13 @@ namespace ArchivePlayer.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly HttpClient _httpClient;
+        private readonly TMDBService _tmdbService;
 
-        public WatchController(ApplicationDbContext context, HttpClient httpClient)
+        public WatchController(ApplicationDbContext context, HttpClient httpClient, TMDBService tmdbService)
         {
             _context = context;
             _httpClient = httpClient;
+            _tmdbService = tmdbService;
         }
 
         [HttpGet("{id}")]
@@ -32,8 +35,15 @@ namespace ArchivePlayer.Controllers
             }
 
             var videoFiles = await GetAvailableVideoFilesAsync(id);
-
             ViewBag.VideoFiles = videoFiles;
+
+            // Fetch episode thumbnails from TMDB if available
+            List<TMDBEpisodeInfo>? episodeThumbnails = null;
+            if (mediaItem.TMDBId.HasValue && mediaItem.TMDBMediaType == "tv")
+            {
+                episodeThumbnails = await _tmdbService.GetEpisodesAsync(mediaItem.TMDBId.Value);
+            }
+            ViewBag.EpisodeThumbnails = episodeThumbnails;
 
             Console.WriteLine($"[DEBUG] Watch page for {id}: {videoFiles.Count} video file(s) found");
 
