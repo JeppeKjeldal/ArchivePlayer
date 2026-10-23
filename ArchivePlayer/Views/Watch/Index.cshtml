@@ -2,10 +2,12 @@
 
 @{
     ViewData["Title"] = Model?.Title ?? "Watch";
+    var videoFiles = ViewBag.VideoFiles as List<string> ?? new List<string>();
+    var hasMultipleFiles = videoFiles.Count > 1;
 }
 
-<div class="min-h-screen bg-netflix-black flex flex-col items-center justify-center p-4">
-
+<div class="min-h-screen bg-netflix-black flex flex-col items-center p-4">
+    
     <!-- Back Button -->
     <div class="w-full max-w-5xl mb-4">
         <a href="/" class="text-gray-400 hover:text-white flex items-center gap-2 transition">
@@ -18,13 +20,15 @@
 
     <!-- Video Player Container -->
     <div class="w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-800">
-        <iframe src="https://archive.org/embed/@(Model?.Identifier)"
-                width="100%"
-                height="100%"
-                frameborder="0"
-                webkitallowfullscreen="true"
-                mozallowfullscreen="true"
-                allowfullscreen>
+        <iframe 
+            id="videoPlayer"
+            src="https://archive.org/embed/@(Model?.Identifier)" 
+            width="100%" 
+            height="100%" 
+            frameborder="0" 
+            webkitallowfullscreen="true" 
+            mozallowfullscreen="true" 
+            allowfullscreen>
         </iframe>
     </div>
 
@@ -33,4 +37,104 @@
         <h1 class="text-3xl font-bold text-white mb-2">@(Model?.Title ?? "Unknown Title")</h1>
         <p class="text-gray-400">@(Model?.Description ?? "No description available.")</p>
     </div>
+
+    <!-- Episode Selector (Only shows if multiple files exist) -->
+    @if (hasMultipleFiles)
+    {
+        <div class="w-full max-w-5xl mt-8 bg-netflix-dark rounded-lg border border-gray-800 p-6">
+            <h2 class="text-2xl font-bold text-white mb-4">Episodes</h2>
+            
+            <!-- Season Dropdown -->
+            <div class="mb-6">
+                <label class="text-gray-400 text-sm mb-2 block">Select Season</label>
+                <select id="seasonSelect" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-netflix-red">
+                    <option value="all">All Episodes</option>
+                </select>
+            </div>
+
+            <!-- Episodes Grid -->
+            <div id="episodesContainer" class="space-y-2 max-h-96 overflow-y-auto">
+                @foreach (var file in videoFiles)
+                {
+                    <div class="episode-item flex items-center p-3 rounded hover:bg-gray-800 cursor-pointer transition border border-transparent hover:border-gray-700" data-filename="@file">
+                        <div class="flex-1">
+                            <p class="text-white font-medium">@file</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <script>
+    const episodes = @Html.Raw(Json.Serialize(videoFiles));
+    const seasonMap = {};
+
+    episodes.forEach(file => {
+        const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i);
+        const season = seasonMatch ? `Season ${seasonMatch[1].padStart(2, '0')}` : 'Other';
+        
+        if (!seasonMap[season]) {
+            seasonMap[season] = [];
+        }
+        seasonMap[season].push(file);
+    });
+
+    const seasonSelect = document.getElementById('seasonSelect');
+    Object.keys(seasonMap).sort().forEach(season => {
+        const option = document.createElement('option');
+        option.value = season;
+        option.textContent = `${season} (${seasonMap[season].length} episodes)`;
+        seasonSelect.appendChild(option);
+    });
+
+    let videoMode = false;
+
+    seasonSelect.addEventListener('change', function() {
+        const selectedSeason = this.value;
+        const episodesContainer = document.getElementById('episodesContainer');
+        
+        episodesContainer.innerHTML = '';
+        
+        const filesToShow = selectedSeason === 'all' 
+            ? episodes 
+            : seasonMap[selectedSeason] || [];
+
+        filesToShow.forEach(file => {
+            const div = document.createElement('div');
+            div.className = 'episode-item flex items-center p-3 rounded hover:bg-gray-800 cursor-pointer transition border border-transparent hover:border-gray-700';
+            div.setAttribute('data-filename', file);
+            div.innerHTML = `<div class="flex-1"><p class="text-white font-medium">${file}</p></div>`;
+            
+            div.addEventListener('click', function() {
+                const filename = this.getAttribute('data-filename');
+                const identifier = '@(Model?.Identifier)';
+                const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
+                
+                const playerContainer = document.getElementById('videoPlayer').parentElement;
+                
+                if (!videoMode) {
+                    playerContainer.innerHTML = `
+                        <video 
+                            id="videoPlayer"
+                            controls 
+                            autoplay
+                            class="w-full h-full">
+                        </video>
+                    `;
+                    videoMode = true;
+                }
+                
+                const videoElement = document.getElementById('videoPlayer');
+                videoElement.src = newSrc;
+                videoElement.load();
+                videoElement.play();
+            });
+            
+            episodesContainer.appendChild(div);
+        });
+    });
+
+    seasonSelect.dispatchEvent(new Event('change'));
+</script>
+    }
 </div>

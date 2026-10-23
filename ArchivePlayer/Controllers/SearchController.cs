@@ -3,7 +3,6 @@ using ArchivePlayer.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 
@@ -15,8 +14,6 @@ namespace ArchivePlayer.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly HttpClient _httpClient;
-
-
 
         public SearchController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, HttpClient httpClient)
         {
@@ -39,23 +36,15 @@ namespace ArchivePlayer.Controllers
                 return View("Index", searchInputModel);
             }
 
-            string identifier;
+            string identifier = searchInputModel.InputString.Contains("archive.org/details/")
+                ? searchInputModel.InputString.Split("archive.org/details/")[1].TrimEnd('/')
+                : searchInputModel.InputString;
 
-            if (searchInputModel.InputString.Contains("archive.org/details/"))
-            {
-                identifier = searchInputModel.InputString.Split("archive.org/details/")[1].TrimEnd('/');
-            }
-            else
-            {
-                identifier = searchInputModel.InputString;
-            }
-
-            Console.WriteLine($"Parsed Identifier: {identifier}");
+            Console.WriteLine($"[DEBUG] Parsed Identifier: {identifier}");
 
             await CreateNewMediaItem(identifier);
 
             var mediaItem = await _context.MediaItems.FirstOrDefaultAsync(m => m.Identifier == identifier);
-
             var user = await _userManager.GetUserAsync(User);
 
             await CreateNewUserMediaItem(mediaItem, user.Id);
@@ -90,7 +79,6 @@ namespace ArchivePlayer.Controllers
                         var metadata = doc.RootElement.GetProperty("metadata");
 
                         mediaType = metadata.GetProperty("mediatype").GetString() ?? "Unknown";
-
                         title = metadata.GetProperty("title").GetString() ?? identifier;
                     }
                 }
