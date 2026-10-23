@@ -2,31 +2,66 @@
 
 @{
     ViewData["Title"] = "Add Source";
+    var existingCategories = ViewBag.ExistingCategories as List<string> ?? new List<string>();
 }
 
-<div class="max-w-2xl mx-auto mt-12 px-4">
-    <h1 class="text-3xl font-bold mb-2">Add Source to Library</h1>
-    <p class="text-gray-400 mb-8">Paste an Archive.org URL or identifier</p>
+<div class="min-h-screen bg-netflix-black flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">Add Source</h1>
+            <p class="text-gray-400">Paste an Archive.org URL or identifier to add content to your library</p>
+        </div>
 
-    <form asp-action="AddSource" method="post">
-        <div class="space-y-4">
-            <div>
-                <label asp-for="InputString" class="block text-sm font-medium text-gray-300 mb-2"></label>
-                <input asp-for="InputString" 
-                       class="w-full bg-netflix-dark border border-gray-700 text-white rounded-md p-3 focus:outline-none focus:border-netflix-red focus:ring-1 focus:ring-netflix-red transition placeholder-gray-600" 
-                       placeholder="https://archive.org/details/..." />
-                <span asp-validation-for="InputString" class="text-red-500 text-sm mt-1 block"></span>
-            </div>
+        <!-- Form -->
+        <form asp-action="AddSource" method="post" class="bg-netflix-dark rounded-lg border border-gray-800 p-8">
             
-            <button type="submit" class="bg-netflix-red text-white font-semibold py-3 px-8 rounded-md hover:bg-red-700 transition duration-200">
+            <!-- Archive.org Input -->
+            <div class="mb-6">
+                <label asp-for="InputString" class="block text-gray-300 text-sm font-semibold mb-2">
+                    Archive.org URL or Identifier
+                </label>
+                <input asp-for="InputString" 
+                       type="text" 
+                       placeholder="https://archive.org/details/identifier or just 'identifier'"
+                       class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" />
+                <span asp-validation-for="InputString" class="text-netflix-red text-sm mt-1"></span>
+            </div>
+
+            <!-- Category Input with Autocomplete -->
+            <div class="mb-8">
+                <label asp-for="CategoryName" class="block text-gray-300 text-sm font-semibold mb-2">
+                    Category
+                </label>
+                <input asp-for="CategoryName" 
+                       type="text" 
+                       list="categorySuggestions"
+                       placeholder="Type a category name (e.g., Anime, Movies, Cartoons)"
+                       class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" />
+                <datalist id="categorySuggestions">
+                    @foreach (var category in existingCategories)
+                    {
+                        <option value="@category"></option>
+                    }
+                </datalist>
+                <span asp-validation-for="CategoryName" class="text-netflix-red text-sm mt-1"></span>
+                <p class="text-gray-500 text-xs mt-2">Start typing to see your existing categories, or type a new one</p>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="w-full bg-netflix-red text-white px-6 py-3 rounded font-semibold hover:bg-red-700 transition">
                 Add to Library
             </button>
-        </div>
-    </form>
-</div>
 
-@section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
-}
+        </form>
+
+        <!-- Back Link -->
+        <div class="text-center mt-6">
+            <a href="/" class="text-gray-400 hover:text-white transition">
+                ← Back to Home
+            </a>
+        </div>
+
+    </div>
+</div>

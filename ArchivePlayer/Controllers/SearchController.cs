@@ -23,8 +23,25 @@ namespace ArchivePlayer.Controllers
         }
 
         [HttpGet]
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user != null)
+            {
+                var categories = await _context.UserMediaItems
+                    .Where(u => u.UserId == user.Id)
+                    .Select(u => u.CategoryName)
+                    .Distinct()
+                    .ToListAsync();
+
+                ViewBag.ExistingCategories = categories;
+            }
+            else
+            {
+                ViewBag.ExistingCategories = new List<string>();
+            }
+
             return View();
         }
 
@@ -33,6 +50,15 @@ namespace ArchivePlayer.Controllers
         {
             if (!ModelState.IsValid)
             {
+                var user = await _userManager.GetUserAsync(User);
+                if (user != null)
+                {
+                    ViewBag.ExistingCategories = await _context.UserMediaItems
+                        .Where(u => u.UserId == user.Id)
+                        .Select(u => u.CategoryName)
+                        .Distinct()
+                        .ToListAsync();
+                }
                 return View("Index", searchInputModel);
             }
 
@@ -45,9 +71,9 @@ namespace ArchivePlayer.Controllers
             await CreateNewMediaItem(identifier);
 
             var mediaItem = await _context.MediaItems.FirstOrDefaultAsync(m => m.Identifier == identifier);
-            var user = await _userManager.GetUserAsync(User);
+            var currentUser = await _userManager.GetUserAsync(User);
 
-            await CreateNewUserMediaItem(mediaItem, user.Id);
+            await CreateNewUserMediaItem(mediaItem, currentUser.Id, searchInputModel.CategoryName);
 
             return RedirectToAction("Index", "Home");
         }
@@ -107,13 +133,13 @@ namespace ArchivePlayer.Controllers
             }
         }
 
-        private async Task CreateNewUserMediaItem(MediaItem? mediaItem, string userId)
+        private async Task CreateNewUserMediaItem(MediaItem? mediaItem, string userId, string categoryName)
         {
             var newUserMediaItem = new UserMediaItem
             {
                 UserId = userId,
                 MediaItemId = mediaItem!.Id,
-                CategoryName = "Uncategorized"
+                CategoryName = string.IsNullOrWhiteSpace(categoryName) ? "Uncategorized" : categoryName
             };
 
             _context.UserMediaItems.Add(newUserMediaItem);
