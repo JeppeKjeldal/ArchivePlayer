@@ -1,11 +1,11 @@
-﻿@model List<ArchivePlayer.Models.UserMediaItem>
+﻿@model IEnumerable<System.Linq.IGrouping<string, ArchivePlayer.Models.UserMediaItem>>
 
 @{
     ViewData["Title"] = "Home";
 }
 
 <!-- Hero Section -->
-<div class="relative h-[70vh] w-full bg-gradient-to-b from-netflix-dark to-netflix-black">
+<div class="relative h-[60vh] w-full bg-gradient-to-b from-netflix-dark to-netflix-black">
     <div class="absolute inset-0 flex items-center justify-center">
         <div class="text-center px-8">
             <h1 class="text-5xl font-bold mb-4">Welcome to ArchivePlayer</h1>
@@ -16,9 +16,6 @@
                 <a href="/Search" class="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition">
                     Add Source
                 </a>
-                <button class="bg-gray-600 text-white px-8 py-3 rounded font-semibold hover:bg-gray-500 transition">
-                    More Info
-                </button>
             </div>
         </div>
     </div>
@@ -26,41 +23,48 @@
 
 <!-- My Library Section -->
 <div class="px-8 py-12">
-    <h2 class="text-2xl font-semibold mb-6">My Library</h2>
-
-    @if (Model != null && Model.Count > 0)
+    
+    @if (Model != null && Model.Any())
     {
-        <!-- Grid of saved items -->
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            @foreach (var item in Model)
-            {
-                <a href="/Watch/@item.MediaItem.Identifier" class="block">
-                    <div class="aspect-video bg-netflix-dark rounded hover:scale-105 transition cursor-pointer flex flex-col border border-gray-800 overflow-hidden">
+        <!-- Loop through each category group (sorted alphabetically by Key) -->
+        @foreach (var group in Model.OrderBy(g => g.Key))
+        {
+            <div class="mb-10">
+                <!-- Category Header -->
+                <h2 class="text-2xl font-semibold text-white mb-4 border-l-4 border-netflix-red pl-3">
+                    @group.Key
+                </h2>
+                
+                <!-- Grid of saved items for this category -->
+                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    @foreach (var item in group)
+                    {
+                        <a href="/Watch/@item.MediaItem.Identifier" class="block group">
+                            <div class="aspect-video bg-netflix-dark rounded hover:scale-105 transition cursor-pointer flex flex-col border border-gray-800 overflow-hidden shadow-lg">
+                                
+                                <!-- Thumbnail Image -->
+                                <img src="@item.MediaItem.ThumbnailUrl" 
+                                     alt="@item.MediaItem.Title"
+                                     onerror="this.style.display='none'"
+                                     class="w-full h-3/4 object-cover" />
 
-                        <!-- Thumbnail Image -->
-                        <img src="@item.MediaItem.ThumbnailUrl"
-                             alt="@item.MediaItem.Title"
-                             onerror="this.style.display='none'"
-                             class="w-full h-3/4 object-cover" />
-
-                        <!-- Title and Category -->
-                        <div class="p-3 flex flex-col justify-center items-center text-center flex-1">
-                            <h3 class="text-white font-semibold truncate w-full" title="@item.MediaItem.Title">
-                                @item.MediaItem.Title
-                            </h3>
-                            <p class="text-gray-400 text-sm mt-1">
-                                @item.CategoryName
-                            </p>
-                        </div>
-                    </div>
-                </a>
-            }
-        </div>
+                                <!-- Title -->
+                                <div class="p-3 flex flex-col justify-center items-center text-center flex-1 bg-gray-900">
+                                    <h3 class="text-white font-semibold truncate w-full text-sm" title="@item.MediaItem.Title">
+                                        @item.MediaItem.Title
+                                    </h3>
+                                </div>
+                            </div>
+                        </a>
+                    }
+                </div>
+            </div>
+        }
     }
     else
     {
         <!-- Empty state message -->
-        <div class="bg-netflix-dark rounded-lg p-12 text-center border border-gray-800">
+        <div class="bg-netflix-dark rounded-lg p-12 text-center border border-gray-800 mt-8">
             <p class="text-gray-400 text-lg">Your library is empty.</p>
             <p class="text-gray-500 mt-2">Add some content to get started!</p>
             <a href="/Search" class="inline-block mt-6 bg-netflix-red text-white px-6 py-2 rounded hover:bg-red-700 transition">

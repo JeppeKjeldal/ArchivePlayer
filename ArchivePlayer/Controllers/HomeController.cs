@@ -20,18 +20,25 @@ namespace ArchivePlayer.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var currentUser = await _userManager.GetUserAsync(User);
+            var user = await _userManager.GetUserAsync(User);
 
-            if (currentUser != null)
+            if (user == null)
             {
-                var library = await _context.UserMediaItems.Include(umi => umi.MediaItem)
-                .Where(umi => umi.UserId == currentUser.Id)
-                .ToListAsync();
-
-                return View(library);
+                return RedirectToAction("Login", "Account"); // Or wherever your login is
             }
 
-            return View(new List<UserMediaItem>());
+            // Fetch library, ordered by Category then by Title
+            var library = await _context.UserMediaItems
+                .Include(umi => umi.MediaItem)
+                .Where(umi => umi.UserId == user.Id)
+                .OrderBy(umi => umi.CategoryName ?? "Uncategorized")
+                .ThenBy(umi => umi.MediaItem.Title)
+                .ToListAsync();
+
+            // Group the items by CategoryName
+            var groupedLibrary = library.GroupBy(umi => umi.CategoryName ?? "Uncategorized");
+
+            return View(groupedLibrary);
         }
 
         public IActionResult Privacy()
