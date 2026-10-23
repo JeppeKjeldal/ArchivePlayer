@@ -41,6 +41,28 @@ namespace ArchivePlayer.Controllers
             return View(groupedLibrary);
         }
 
+        [HttpPost]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+
+            if (user == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var userMediaItem = await _context.UserMediaItems
+                .FirstOrDefaultAsync(umi => umi.Id == id && umi.UserId == user.Id);
+
+            if (userMediaItem != null)
+            {
+                _context.UserMediaItems.Remove(userMediaItem);
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("Index");
+        }
+
         public IActionResult Privacy()
         {
             return View();
