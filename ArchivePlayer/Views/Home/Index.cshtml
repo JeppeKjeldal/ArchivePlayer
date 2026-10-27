@@ -1,7 +1,9 @@
 ﻿@model IEnumerable<System.Linq.IGrouping<string, ArchivePlayer.Models.UserMediaItem>>
+@using ArchivePlayer.Models
 
 @{
     ViewData["Title"] = "Home";
+    var recentlyWatched = ViewBag.RecentlyWatched as List<UserMediaItem> ?? new List<UserMediaItem>();
 }
 
 <!-- Hero Section -->
@@ -26,6 +28,56 @@
 
     @if (Model != null && Model.Any())
     {
+        <!-- Recently Watched Section -->
+        @if (recentlyWatched.Any())
+        {
+            <div class="mb-10">
+                <h2 class="text-2xl font-semibold text-white mb-4 border-l-4 border-netflix-red pl-3">
+                    Recently Watched
+                </h2>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                    @foreach (var item in recentlyWatched)
+                    {
+                        <div class="relative group">
+                            <a href="/Watch/@item.MediaItem.Identifier" class="block">
+                                <!-- Portrait Poster Card (2:3 ratio) -->
+                                <div class="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg border border-gray-800 hover:scale-105 hover:border-netflix-red transition-all duration-300">
+
+                                    <!-- Full Poster Image -->
+                                    <img src="@item.MediaItem.ThumbnailUrl"
+                                         alt="@item.MediaItem.Title"
+                                         onerror="this.style.display='none'"
+                                         class="w-full h-full object-cover" />
+
+                                    <!-- Gradient Overlay for Title Readability -->
+                                    <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                                    <!-- Title (Hidden until hover) -->
+                                    <div class="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <h3 class="text-white font-semibold text-sm line-clamp-3" title="@item.MediaItem.Title">
+                                            @item.MediaItem.Title
+                                        </h3>
+                                    </div>
+                                </div>
+                            </a>
+
+                            <!-- Remove from Recently Watched Button (Top-right corner) -->
+                            <form asp-action="ClearRecentlyWatched" method="post" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10" onclick="return confirm('Remove from recently watched? (Item will remain in your library)');">
+                                <input type="hidden" name="id" value="@item.Id" />
+                                <button type="submit" class="bg-gray-700 hover:bg-gray-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition" title="Remove from recently watched">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Category Sections -->
         @foreach (var group in Model.OrderBy(g => g.Key))
         {
             <div class="mb-10">

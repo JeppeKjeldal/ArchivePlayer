@@ -18,8 +18,11 @@ public class UserMediaItem
 
     public bool AutoplayEnabled { get; set; } = true;
 
-    public DateTime LastWatched { get; set; } = DateTime.UtcNow;
+    public DateTime? LastWatched { get; set; } = DateTime.UtcNow;
+
+    public string? CurrentEpisodeFileName { get; set; }
 
     public ApplicationUser User { get; set; } = null!;
+
     public MediaItem MediaItem { get; set; } = null!;
 }

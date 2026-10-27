@@ -1,12 +1,14 @@
-using ArchivePlayer.Models;
 using ArchivePlayer.Data;
+using ArchivePlayer.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace ArchivePlayer.Controllers
 {
+    [Authorize]
     public class HomeController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -24,10 +26,9 @@ namespace ArchivePlayer.Controllers
 
             if (user == null)
             {
-                return RedirectToAction("Login", "Account"); // Or wherever your login is
+                return RedirectToAction("Login", "Account");
             }
 
-            // Fetch library, ordered by Category then by Title
             var library = await _context.UserMediaItems
                 .Include(umi => umi.MediaItem)
                 .Where(umi => umi.UserId == user.Id)
@@ -35,7 +36,15 @@ namespace ArchivePlayer.Controllers
                 .ThenBy(umi => umi.MediaItem.Title)
                 .ToListAsync();
 
-            // Group the items by CategoryName
+            var recentlyWatched = await _context.UserMediaItems
+                .Include(umi => umi.MediaItem)
+                .Where(umi => umi.UserId == user.Id && umi.LastWatched != null)
+                .OrderByDescending(umi => umi.LastWatched)
+                .Take(20)
+                .ToListAsync();
+
+            ViewBag.RecentlyWatched = recentlyWatched;
+
             var groupedLibrary = library.GroupBy(umi => umi.CategoryName ?? "Uncategorized");
 
             return View(groupedLibrary);
@@ -63,15 +72,29 @@ namespace ArchivePlayer.Controllers
             return RedirectToAction("Index");
         }
 
-        public IActionResult Privacy()
+        [HttpPost]
+        public async Task<IActionResult> ClearRecentlyWatched(int id)
         {
-            return View();
-        }
+            var user = await _userManager.GetUserAsync(User);
 
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
-        {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            if (user == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var userMediaItem = await _context.UserMediaItems
+                .FirstOrDefaultAsync(umi => umi.Id == id && umi.UserId == user.Id);
+
+            if (userMediaItem != null)
+            {
+                userMediaItem.LastWatched = null;
+                userMediaItem.WatchProgressSeconds = 0;
+                userMediaItem.CurrentEpisodeFileName = null;
+
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("Index");
         }
     }
 }

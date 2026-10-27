@@ -138,10 +138,13 @@ namespace ArchivePlayer.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CurrentEpisodeFileName")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsCompleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("LastWatched")
+                    b.Property<DateTime?>("LastWatched")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("MediaItemId")

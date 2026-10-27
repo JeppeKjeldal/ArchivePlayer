@@ -6,6 +6,8 @@
     var videoFiles = ViewBag.VideoFiles as List<string> ?? new List<string>();
     var episodeThumbnails = ViewBag.EpisodeThumbnails as List<TMDBEpisodeInfo>;
     var hasMultipleFiles = videoFiles.Count > 1;
+    var watchProgressSeconds = ViewBag.WatchProgressSeconds as int? ?? 0;
+    var currentEpisode = ViewBag.CurrentEpisode as string;
 }
 
 <div class="min-h-screen bg-netflix-black flex flex-col items-center p-4">
@@ -22,16 +24,12 @@
 
     <!-- Video Player Container -->
     <div class="w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-800">
-        <iframe 
+        <video 
             id="videoPlayer"
-            src="https://archive.org/embed/@(Model?.Identifier)" 
-            width="100%" 
-            height="100%" 
-            frameborder="0" 
-            webkitallowfullscreen="true" 
-            mozallowfullscreen="true" 
-            allowfullscreen>
-        </iframe>
+            controls 
+            autoplay
+            class="w-full h-full">
+        </video>
     </div>
 
     <!-- Video Info -->
@@ -64,6 +62,9 @@
             const episodes = @Html.Raw(Json.Serialize(videoFiles));
             const episodeThumbnails = @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TMDBEpisodeInfo>()));
             const seasonMap = {};
+            const identifier = '@(Model?.Identifier)';
+            const savedProgress = @watchProgressSeconds;
+            const savedEpisode = '@(currentEpisode ?? "")';
 
             episodes.forEach((file, index) => {
                 const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i) || file.match(/(\d+)x\d+/i);
@@ -73,7 +74,6 @@
                     seasonMap[season] = [];
                 }
                 
-                // Try to match with TMDB episode data
                 let thumbnailUrl = null;
                 let episodeName = file;
                 
@@ -105,8 +105,41 @@
                 seasonSelect.appendChild(option);
             });
 
-            let videoMode = false;
+            // Function to play an episode
+            function playEpisode(filename, startTime = 0) {
+                const videoElement = document.getElementById('videoPlayer');
+                const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
+                videoElement.src = newSrc;
+                videoElement.currentTime = startTime;
+                videoElement.load();
+                videoElement.play();
+                
+                // Save current episode to localStorage for progress tracking
+                localStorage.setItem('currentEpisode', filename);
+            }
 
+            // Function to save progress
+            function saveProgress() {
+                const videoElement = document.getElementById('videoPlayer');
+                const progressSeconds = Math.floor(videoElement.currentTime);
+                const currentEpisode = localStorage.getItem('currentEpisode') || '';
+                
+                fetch('/Watch/SaveProgress', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `identifier=${encodeURIComponent(identifier)}&progressSeconds=${progressSeconds}&episodeFileName=${encodeURIComponent(currentEpisode)}`
+                });
+            }
+
+            // Save progress every 10 seconds
+            setInterval(saveProgress, 10000);
+
+            // Save progress when leaving page
+            window.addEventListener('beforeunload', saveProgress);
+
+            // Populate episodes
             seasonSelect.addEventListener('change', function() {
                 const selectedSeason = this.value;
                 const episodesContainer = document.getElementById('episodesContainer');
@@ -144,34 +177,63 @@
                     
                     div.addEventListener('click', function() {
                         const filename = this.getAttribute('data-filename');
-                        const identifier = '@(Model?.Identifier)';
-                        const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
-                        
-                        const playerContainer = document.getElementById('videoPlayer').parentElement;
-                        
-                        if (!videoMode) {
-                            playerContainer.innerHTML = `
-                                <video 
-                                    id="videoPlayer"
-                                    controls 
-                                    autoplay
-                                    class="w-full h-full">
-                                </video>
-                            `;
-                            videoMode = true;
-                        }
-                        
-                        const videoElement = document.getElementById('videoPlayer');
-                        videoElement.src = newSrc;
-                        videoElement.load();
-                        videoElement.play();
+                        playEpisode(filename, 0);
                     });
                     
                     episodesContainer.appendChild(div);
                 });
             });
 
+            // Initial load
             seasonSelect.dispatchEvent(new Event('change'));
+
+            // Resume from saved progress
+            if (savedEpisode && episodes.includes(savedEpisode)) {
+                playEpisode(savedEpisode, savedProgress);
+            } else if (episodes.length > 0) {
+                playEpisode(episodes[0], 0);
+            }
+        </script>
+    }
+    else
+    {
+        <script>
+            const identifier = '@(Model?.Identifier)';
+            const savedProgress = @watchProgressSeconds;
+            const videoElement = document.getElementById('videoPlayer');
+            
+            // Set video source
+            const videoSrc = `https://archive.org/download/${identifier}/${encodeURIComponent('@(videoFiles.FirstOrDefault() ?? "")')}`;
+            videoElement.src = videoSrc;
+            
+            // Resume from saved progress
+            if (savedProgress > 0) {
+                videoElement.addEventListener('loadedmetadata', function() {
+                    videoElement.currentTime = savedProgress;
+                });
+            }
+            
+            // Save progress function
+            function saveProgress() {
+                const progressSeconds = Math.floor(videoElement.currentTime);
+                
+                fetch('/Watch/SaveProgress', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `identifier=${encodeURIComponent(identifier)}&progressSeconds=${progressSeconds}&episodeFileName=`
+                });
+            }
+            
+            // Save progress every 10 seconds
+            setInterval(saveProgress, 10000);
+            
+            // Save progress when leaving page
+            window.addEventListener('beforeunload', saveProgress);
+            
+            // Start playing
+            videoElement.play();
         </script>
     }
 </div>
