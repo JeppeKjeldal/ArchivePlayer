@@ -23,19 +23,21 @@
     </div>
 
     <!-- Video Player Container -->
-    <div class="w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-800 relative">
-        <video 
-            id="videoPlayer"
-            controls 
-            autoplay
-            class="w-full h-full">
-        </video>
+    <div id="videoPlayerContainer" 
+         class="w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-800 relative"
+         data-identifier="@(Model?.Identifier)"
+         data-has-episodes="@hasMultipleFiles.ToString().ToLower()"
+         data-saved-progress="@watchProgressSeconds"
+         data-saved-episode="@(currentEpisode ?? "")"
+         data-video-file="@(videoFiles.FirstOrDefault() ?? "")"
+         data-show-description="@(Model?.Description ?? "No description available.")">
+        
+        <video id="videoPlayer" controls autoplay class="w-full h-full"></video>
 
         <!-- Control Overlay -->
         <div id="controlOverlay" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-300">
             <!-- Top Controls -->
             <div class="absolute top-4 right-4 flex gap-2 pointer-events-auto">
-                <!-- Playback Speed -->
                 <select id="playbackSpeed" class="bg-black/70 text-white border border-gray-600 rounded px-2 py-1 text-sm cursor-pointer hover:bg-black/90">
                     <option value="0.5">0.5x</option>
                     <option value="0.75">0.75x</option>
@@ -45,7 +47,6 @@
                     <option value="2">2x</option>
                 </select>
 
-                <!-- Picture-in-Picture -->
                 <button id="pipButton" class="bg-black/70 hover:bg-black/90 text-white rounded p-2 transition" title="Picture-in-Picture">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M3 4a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm12 4a1 1 0 011 1v6a1 1 0 01-1 1h-5a1 1 0 01-1-1V9a1 1 0 011-1h5z" />
@@ -55,14 +56,12 @@
 
             <!-- Bottom Controls -->
             <div class="absolute bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 pointer-events-auto">
-                <!-- Skip Back 10s -->
                 <button id="skipBackButton" class="bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition" title="Skip back 10 seconds (←)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                 </button>
 
-                <!-- Skip Forward 10s -->
                 <button id="skipForwardButton" class="bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition" title="Skip forward 10 seconds (→)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M12.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 9H9a5 5 0 00-5 5v2a1 1 0 11-2 0v-2a7 7 0 017-7h5.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -105,13 +104,12 @@
         <p id="episodeDescription" class="text-gray-400">@(Model?.Description ?? "No description available.")</p>
     </div>
 
-    <!-- Episode Selector (Only shows if multiple files exist) -->
+    <!-- Episode Selector -->
     @if (hasMultipleFiles)
     {
         <div class="w-full max-w-5xl mt-8 bg-netflix-dark rounded-lg border border-gray-800 p-6">
             <h2 class="text-2xl font-bold text-white mb-4">Episodes</h2>
             
-            <!-- Season Dropdown -->
             <div class="mb-6">
                 <label class="text-gray-400 text-sm mb-2 block">Select Season</label>
                 <select id="seasonSelect" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-netflix-red">
@@ -119,623 +117,18 @@
                 </select>
             </div>
 
-            <!-- Episodes Horizontal Slider -->
-            <div id="episodesContainer" class="flex overflow-x-auto gap-3 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900">
-                <!-- Episodes will be populated by JavaScript -->
-            </div>
+            <div id="episodesContainer" class="flex overflow-x-auto gap-3 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900"></div>
         </div>
-
-        <script>
-            const episodes = @Html.Raw(Json.Serialize(videoFiles));
-            const episodeThumbnails = @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TMDBEpisodeInfo>()));
-            const seasonMap = {};
-            const identifier = '@(Model?.Identifier)';
-            const savedProgress = @watchProgressSeconds;
-            const savedEpisode = '@(currentEpisode ?? "")';
-
-            // Build season map with episode data
-            episodes.forEach((file, index) => {
-                const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i) || file.match(/(\d+)x\d+/i);
-                const season = seasonMatch ? `Season ${seasonMatch[1].padStart(2, '0')}` : 'Other';
-                
-                if (!seasonMap[season]) {
-                    seasonMap[season] = [];
-                }
-                
-                let thumbnailUrl = null;
-                let episodeName = file;
-                let episodeOverview = null;
-                
-                const epMatch = file.match(/E(\d+)/i) || file.match(/Ep(?:isode)?\s*(\d+)/i) || file.match(/\d+x(\d+)/i);
-                const epNum = epMatch ? parseInt(epMatch[1]) : null;
-                const seasonNum = seasonMatch ? parseInt(seasonMatch[1]) : null;
-                
-                if (seasonNum && epNum && episodeThumbnails.length > 0) {
-                    const tmdbEp = episodeThumbnails.find(e => e.seasonNumber === seasonNum && e.episodeNumber === epNum);
-                    if (tmdbEp) {
-                        thumbnailUrl = tmdbEp.stillUrl;
-                        episodeName = tmdbEp.name || file;
-                        episodeOverview = tmdbEp.overview;
-                    }
-                }
-                
-                seasonMap[season].push({
-                    filename: file,
-                    thumbnail: thumbnailUrl,
-                    name: episodeName,
-                    episodeNum: epNum,
-                    seasonNum: seasonNum,
-                    overview: episodeOverview
-                });
-            });
-
-            // Populate season dropdown
-            const seasonSelect = document.getElementById('seasonSelect');
-            Object.keys(seasonMap).sort().forEach(season => {
-                const option = document.createElement('option');
-                option.value = season;
-                option.textContent = `${season} (${seasonMap[season].length} episodes)`;
-                seasonSelect.appendChild(option);
-            });
-
-            // Find which season an episode belongs to
-            function findSeasonForEpisode(filename) {
-                for (const [season, eps] of Object.entries(seasonMap)) {
-                    if (eps.some(ep => ep.filename === filename)) {
-                        return season;
-                    }
-                }
-                return 'all';
-            }
-
-            // Get next episode in sequence
-            function getNextEpisode(currentFilename) {
-                const allEpisodes = Object.values(seasonMap).flat();
-                const currentIndex = allEpisodes.findIndex(ep => ep.filename === currentFilename);
-                if (currentIndex >= 0 && currentIndex < allEpisodes.length - 1) {
-                    return allEpisodes[currentIndex + 1];
-                }
-                return null;
-            }
-
-            // Function to update episode info display
-            function updateEpisodeInfo(ep) {
-                const titleElement = document.getElementById('videoTitle');
-                const episodeInfoElement = document.getElementById('episodeInfo');
-                const descriptionElement = document.getElementById('episodeDescription');
-                
-                if (ep.seasonNum && ep.episodeNum) {
-                    const episodeTitle = ep.name ? ` - ${ep.name}` : '';
-                    episodeInfoElement.textContent = `Season ${ep.seasonNum}, Episode ${ep.episodeNum}${episodeTitle}`;
-                } else {
-                    episodeInfoElement.textContent = '';
-                }
-                
-                if (ep.overview) {
-                    descriptionElement.textContent = ep.overview;
-                } else {
-                    descriptionElement.textContent = '@(Model?.Description ?? "No description available.")';
-                }
-            }
-
-            // Function to highlight the currently playing episode
-            function highlightCurrentEpisode(filename) {
-                // Remove highlight from all episodes
-                document.querySelectorAll('#episodesContainer > div').forEach(div => {
-                    div.classList.remove('border-netflix-red', 'ring-2', 'ring-netflix-red');
-                    div.classList.add('border-gray-700');
-                });
-                
-                // Add highlight to current episode
-                const currentDiv = document.querySelector(`#episodesContainer > div[data-filename="${filename}"]`);
-                if (currentDiv) {
-                    currentDiv.classList.remove('border-gray-700');
-                    currentDiv.classList.add('border-netflix-red', 'ring-2', 'ring-netflix-red');
-                    
-                    // Scroll to center the highlighted episode
-                    currentDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                }
-            }
-
-            // Function to play an episode
-            function playEpisode(filename, startTime = 0) {
-                const videoElement = document.getElementById('videoPlayer');
-                const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
-                videoElement.src = newSrc;
-                videoElement.currentTime = startTime;
-                videoElement.load();
-                videoElement.play();
-                
-                // Save current episode to localStorage for progress tracking
-                localStorage.setItem('currentEpisode', filename);
-                
-                // Highlight the current episode
-                highlightCurrentEpisode(filename);
-                
-                // Find the episode data and update info
-                const allEpisodes = Object.values(seasonMap).flat();
-                const currentEp = allEpisodes.find(e => e.filename === filename);
-                if (currentEp) {
-                    updateEpisodeInfo(currentEp);
-                }
-
-                // Hide next episode countdown if it was showing
-                document.getElementById('nextEpisodeCountdown').classList.add('hidden');
-            }
-
-            // Function to save progress
-            function saveProgress() {
-                const videoElement = document.getElementById('videoPlayer');
-                const progressSeconds = Math.floor(videoElement.currentTime);
-                const currentEpisode = localStorage.getItem('currentEpisode') || '';
-                
-                fetch('/Watch/SaveProgress', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `identifier=${encodeURIComponent(identifier)}&progressSeconds=${progressSeconds}&episodeFileName=${encodeURIComponent(currentEpisode)}`
-                });
-            }
-
-            // Save progress every 10 seconds
-            setInterval(saveProgress, 10000);
-
-            // Save progress when leaving page
-            window.addEventListener('beforeunload', saveProgress);
-
-            // Populate episodes
-            seasonSelect.addEventListener('change', function() {
-                const selectedSeason = this.value;
-                const episodesContainer = document.getElementById('episodesContainer');
-                
-                episodesContainer.innerHTML = '';
-                
-                const episodesToShow = selectedSeason === 'all' 
-                    ? Object.values(seasonMap).flat()
-                    : (seasonMap[selectedSeason] || []);
-
-                // Get currently playing episode
-                const currentPlaying = localStorage.getItem('currentEpisode') || savedEpisode;
-
-                episodesToShow.forEach(ep => {
-                    const div = document.createElement('div');
-                    const isCurrentEpisode = ep.filename === currentPlaying;
-                    
-                    div.className = `flex-shrink-0 w-64 bg-gray-800 rounded-lg overflow-hidden hover:scale-105 cursor-pointer transition border ${isCurrentEpisode ? 'border-netflix-red ring-2 ring-netflix-red' : 'border-gray-700 hover:border-netflix-red'}`;
-                    div.setAttribute('data-filename', ep.filename);
-                    
-                    const displayName = ep.episodeNum ? `Episode ${ep.episodeNum}` : ep.name;
-                    
-                    div.innerHTML = `
-                        ${ep.thumbnail ? `
-                            <div class="aspect-video bg-black">
-                                <img src="${ep.thumbnail}" alt="${ep.name}" class="w-full h-full object-cover" />
-                            </div>
-                        ` : `
-                            <div class="aspect-video bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4zm2 0h1V9h-1v2zm1-4V5h-1v2h1zM5 5v2H4V5h1zm-1 4h1v2H4V9zm0 4h1v2H4v-2z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                        `}
-                        <div class="p-3 bg-gray-900">
-                            <p class="text-white font-semibold text-sm truncate">${displayName}</p>
-                            <p class="text-gray-400 text-xs mt-1 truncate" title="${ep.filename}">${ep.name}</p>
-                        </div>
-                    `;
-                    
-                    div.addEventListener('click', function() {
-                        const filename = this.getAttribute('data-filename');
-                        playEpisode(filename, 0);
-                    });
-                    
-                    episodesContainer.appendChild(div);
-                });
-
-                // Scroll to highlighted episode after populating
-                setTimeout(() => {
-                    if (currentPlaying) {
-                        highlightCurrentEpisode(currentPlaying);
-                    }
-                }, 100);
-            });
-
-            // Initial load - auto-select the correct season
-            if (savedEpisode) {
-                const seasonForSaved = findSeasonForEpisode(savedEpisode);
-                seasonSelect.value = seasonForSaved;
-            }
-            
-            seasonSelect.dispatchEvent(new Event('change'));
-
-            // Resume from saved progress
-            if (savedEpisode && episodes.includes(savedEpisode)) {
-                playEpisode(savedEpisode, savedProgress);
-            } else if (episodes.length > 0) {
-                playEpisode(episodes[0], 0);
-            }
-
-            // ========== ENHANCED VIDEO PLAYER FEATURES ==========
-
-            const videoElement = document.getElementById('videoPlayer');
-            const controlOverlay = document.getElementById('controlOverlay');
-            const playbackSpeed = document.getElementById('playbackSpeed');
-            const pipButton = document.getElementById('pipButton');
-            const skipBackButton = document.getElementById('skipBackButton');
-            const skipForwardButton = document.getElementById('skipForwardButton');
-            const nextEpisodeCountdown = document.getElementById('nextEpisodeCountdown');
-            const countdownNumber = document.getElementById('countdownNumber');
-            const cancelCountdown = document.getElementById('cancelCountdown');
-            const doubleTapLeft = document.getElementById('doubleTapLeft');
-            const doubleTapRight = document.getElementById('doubleTapRight');
-
-            let countdownInterval = null;
-            let lastTapTime = 0;
-
-            // Restore volume from localStorage
-            const savedVolume = localStorage.getItem('videoVolume');
-            if (savedVolume !== null) {
-                videoElement.volume = parseFloat(savedVolume);
-            }
-
-            // Save volume when changed
-            videoElement.addEventListener('volumechange', function() {
-                localStorage.setItem('videoVolume', videoElement.volume);
-            });
-
-            // Show/hide control overlay on mouse move
-            let hideOverlayTimeout;
-            const videoContainer = videoElement.parentElement;
-            
-            videoContainer.addEventListener('mousemove', function() {
-                controlOverlay.style.opacity = '1';
-                clearTimeout(hideOverlayTimeout);
-                hideOverlayTimeout = setTimeout(() => {
-                    if (!videoElement.paused) {
-                        controlOverlay.style.opacity = '0';
-                    }
-                }, 3000);
-            });
-
-            videoContainer.addEventListener('mouseleave', function() {
-                if (!videoElement.paused) {
-                    controlOverlay.style.opacity = '0';
-                }
-            });
-
-            // Playback speed control
-            playbackSpeed.addEventListener('change', function() {
-                videoElement.playbackRate = parseFloat(this.value);
-            });
-
-            // Picture-in-Picture
-            pipButton.addEventListener('click', async function() {
-                try {
-                    if (document.pictureInPictureElement) {
-                        await document.exitPictureInPicture();
-                    } else {
-                        await videoElement.requestPictureInPicture();
-                    }
-                } catch (error) {
-                    console.error('PiP error:', error);
-                }
-            });
-
-            // Skip buttons
-            skipBackButton.addEventListener('click', function() {
-                videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
-            });
-
-            skipForwardButton.addEventListener('click', function() {
-                videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
-            });
-
-            // Keyboard shortcuts
-            document.addEventListener('keydown', function(e) {
-                // Don't trigger if user is typing in an input
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-                    return;
-                }
-
-                switch(e.key.toLowerCase()) {
-                    case ' ':
-                    case 'k':
-                        e.preventDefault();
-                        if (videoElement.paused) {
-                            videoElement.play();
-                        } else {
-                            videoElement.pause();
-                        }
-                        break;
-                    case 'arrowleft':
-                    case 'j':
-                        e.preventDefault();
-                        videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
-                        break;
-                    case 'arrowright':
-                    case 'l':
-                        e.preventDefault();
-                        videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
-                        break;
-                    case 'arrowup':
-                        e.preventDefault();
-                        videoElement.volume = Math.min(1, videoElement.volume + 0.1);
-                        break;
-                    case 'arrowdown':
-                        e.preventDefault();
-                        videoElement.volume = Math.max(0, videoElement.volume - 0.1);
-                        break;
-                    case 'm':
-                        e.preventDefault();
-                        videoElement.muted = !videoElement.muted;
-                        break;
-                    case 'f':
-                        e.preventDefault();
-                        if (document.fullscreenElement) {
-                            document.exitFullscreen();
-                        } else {
-                            videoContainer.requestFullscreen();
-                        }
-                        break;
-                }
-            });
-
-            // Mobile double-tap to skip
-            videoContainer.addEventListener('touchend', function(e) {
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTapTime;
-                
-                if (tapLength < 300 && tapLength > 0) {
-                    // Double tap detected
-                    const rect = videoContainer.getBoundingClientRect();
-                    const tapX = e.changedTouches[0].clientX - rect.left;
-                    const containerWidth = rect.width;
-                    
-                    if (tapX < containerWidth / 3) {
-                        // Left side - skip back
-                        videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
-                        doubleTapLeft.style.opacity = '1';
-                        setTimeout(() => {
-                            doubleTapLeft.style.opacity = '0';
-                        }, 500);
-                    } else if (tapX > containerWidth * 2 / 3) {
-                        // Right side - skip forward
-                        videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
-                        doubleTapRight.style.opacity = '1';
-                        setTimeout(() => {
-                            doubleTapRight.style.opacity = '0';
-                        }, 500);
-                    }
-                } else {
-                    lastTapTime = currentTime;
-                }
-            });
-
-            // Autoplay next episode
-            videoElement.addEventListener('ended', function() {
-                const currentEpisode = localStorage.getItem('currentEpisode');
-                const nextEp = getNextEpisode(currentEpisode);
-                
-                if (nextEp) {
-                    // Show countdown
-                    nextEpisodeCountdown.classList.remove('hidden');
-                    let countdown = 10;
-                    countdownNumber.textContent = countdown;
-                    
-                    countdownInterval = setInterval(() => {
-                        countdown--;
-                        countdownNumber.textContent = countdown;
-                        
-                        if (countdown <= 0) {
-                            clearInterval(countdownInterval);
-                            nextEpisodeCountdown.classList.add('hidden');
-                            playEpisode(nextEp.filename, 0);
-                        }
-                    }, 1000);
-                }
-            });
-
-            // Cancel countdown
-            cancelCountdown.addEventListener('click', function() {
-                if (countdownInterval) {
-                    clearInterval(countdownInterval);
-                }
-                nextEpisodeCountdown.classList.add('hidden');
-            });
-
-            // Hide countdown if user interacts with video
-            videoElement.addEventListener('play', function() {
-                if (countdownInterval) {
-                    clearInterval(countdownInterval);
-                }
-                nextEpisodeCountdown.classList.add('hidden');
-            });
-        </script>
-    }
-    else
-    {
-        <script>
-            const identifier = '@(Model?.Identifier)';
-            const savedProgress = @watchProgressSeconds;
-            const videoElement = document.getElementById('videoPlayer');
-            const controlOverlay = document.getElementById('controlOverlay');
-            const playbackSpeed = document.getElementById('playbackSpeed');
-            const pipButton = document.getElementById('pipButton');
-            const skipBackButton = document.getElementById('skipBackButton');
-            const skipForwardButton = document.getElementById('skipForwardButton');
-            const doubleTapLeft = document.getElementById('doubleTapLeft');
-            const doubleTapRight = document.getElementById('doubleTapRight');
-
-            // Set video source
-            const videoSrc = `https://archive.org/download/${identifier}/${encodeURIComponent('@(videoFiles.FirstOrDefault() ?? "")')}`;
-            videoElement.src = videoSrc;
-            
-            // Resume from saved progress
-            if (savedProgress > 0) {
-                videoElement.addEventListener('loadedmetadata', function() {
-                    videoElement.currentTime = savedProgress;
-                });
-            }
-
-            // Restore volume from localStorage
-            const savedVolume = localStorage.getItem('videoVolume');
-            if (savedVolume !== null) {
-                videoElement.volume = parseFloat(savedVolume);
-            }
-
-            // Save volume when changed
-            videoElement.addEventListener('volumechange', function() {
-                localStorage.setItem('videoVolume', videoElement.volume);
-            });
-            
-            // Save progress function
-            function saveProgress() {
-                const progressSeconds = Math.floor(videoElement.currentTime);
-                
-                fetch('/Watch/SaveProgress', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `identifier=${encodeURIComponent(identifier)}&progressSeconds=${progressSeconds}&episodeFileName=`
-                });
-            }
-            
-            // Save progress every 10 seconds
-            setInterval(saveProgress, 10000);
-            
-            // Save progress when leaving page
-            window.addEventListener('beforeunload', saveProgress);
-
-            // Show/hide control overlay on mouse move
-            let hideOverlayTimeout;
-            const videoContainer = videoElement.parentElement;
-            
-            videoContainer.addEventListener('mousemove', function() {
-                controlOverlay.style.opacity = '1';
-                clearTimeout(hideOverlayTimeout);
-                hideOverlayTimeout = setTimeout(() => {
-                    if (!videoElement.paused) {
-                        controlOverlay.style.opacity = '0';
-                    }
-                }, 3000);
-            });
-
-            videoContainer.addEventListener('mouseleave', function() {
-                if (!videoElement.paused) {
-                    controlOverlay.style.opacity = '0';
-                }
-            });
-
-            // Playback speed control
-            playbackSpeed.addEventListener('change', function() {
-                videoElement.playbackRate = parseFloat(this.value);
-            });
-
-            // Picture-in-Picture
-            pipButton.addEventListener('click', async function() {
-                try {
-                    if (document.pictureInPictureElement) {
-                        await document.exitPictureInPicture();
-                    } else {
-                        await videoElement.requestPictureInPicture();
-                    }
-                } catch (error) {
-                    console.error('PiP error:', error);
-                }
-            });
-
-            // Skip buttons
-            skipBackButton.addEventListener('click', function() {
-                videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
-            });
-
-            skipForwardButton.addEventListener('click', function() {
-                videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
-            });
-
-            // Keyboard shortcuts
-            document.addEventListener('keydown', function(e) {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-                    return;
-                }
-
-                switch(e.key.toLowerCase()) {
-                    case ' ':
-                    case 'k':
-                        e.preventDefault();
-                        if (videoElement.paused) {
-                            videoElement.play();
-                        } else {
-                            videoElement.pause();
-                        }
-                        break;
-                    case 'arrowleft':
-                    case 'j':
-                        e.preventDefault();
-                        videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
-                        break;
-                    case 'arrowright':
-                    case 'l':
-                        e.preventDefault();
-                        videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
-                        break;
-                    case 'arrowup':
-                        e.preventDefault();
-                        videoElement.volume = Math.min(1, videoElement.volume + 0.1);
-                        break;
-                    case 'arrowdown':
-                        e.preventDefault();
-                        videoElement.volume = Math.max(0, videoElement.volume - 0.1);
-                        break;
-                    case 'm':
-                        e.preventDefault();
-                        videoElement.muted = !videoElement.muted;
-                        break;
-                    case 'f':
-                        e.preventDefault();
-                        if (document.fullscreenElement) {
-                            document.exitFullscreen();
-                        } else {
-                            videoContainer.requestFullscreen();
-                        }
-                        break;
-                }
-            });
-
-            // Mobile double-tap to skip
-            videoContainer.addEventListener('touchend', function(e) {
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTapTime;
-                
-                if (tapLength < 300 && tapLength > 0) {
-                    const rect = videoContainer.getBoundingClientRect();
-                    const tapX = e.changedTouches[0].clientX - rect.left;
-                    const containerWidth = rect.width;
-                    
-                    if (tapX < containerWidth / 3) {
-                        videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
-                        doubleTapLeft.style.opacity = '1';
-                        setTimeout(() => {
-                            doubleTapLeft.style.opacity = '0';
-                        }, 500);
-                    } else if (tapX > containerWidth * 2 / 3) {
-                        videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
-                        doubleTapRight.style.opacity = '1';
-                        setTimeout(() => {
-                            doubleTapRight.style.opacity = '0';
-                        }, 500);
-                    }
-                } else {
-                    lastTapTime = currentTime;
-                }
-            });
-
-            let lastTapTime = 0;
-            
-            // Start playing
-            videoElement.play();
-        </script>
     }
 </div>
+
+<!-- JSON Data for JavaScript -->
+<script type="application/json" id="videoPlayerData">
+{
+    "episodes": @Html.Raw(Json.Serialize(videoFiles)),
+    "episodeThumbnails": @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TMDBEpisodeInfo>()))
+}
+</script>
+
+@section Scripts {
+    <script src="~/js/watch-player.js?v=3"></script>}
