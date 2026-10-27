@@ -114,32 +114,23 @@ namespace ArchivePlayer.Controllers
                         var metadata = doc.RootElement.GetProperty("metadata");
 
                         mediaType = metadata.GetProperty("mediatype").GetString() ?? "Unknown";
-                        title = metadata.GetProperty("title").GetString() ?? identifier;
+                        string archiveTitle = metadata.GetProperty("title").GetString() ?? identifier;
+                        title = archiveTitle;
 
-                        Console.WriteLine($"[DEBUG] Archive Title extracted: '{title}'");
-                        Console.WriteLine($"[DEBUG] Fetching TMDB data for: '{title}'");
-
-                        var tmdbResult = await _tmdbService.SearchByTitleAsync(title);
+                        var tmdbResult = await _tmdbService.SearchByTitleAsync(archiveTitle);
 
                         if (tmdbResult != null)
                         {
                             tmdbPosterUrl = tmdbResult.Value.posterUrl;
+                            title = tmdbResult.Value.tmdbTitle;
                             tmdbId = tmdbResult.Value.tmdbId;
                             tmdbMediaType = tmdbResult.Value.mediaType;
 
                             if (!string.IsNullOrEmpty(tmdbPosterUrl))
                             {
                                 thumbnailUrl = tmdbPosterUrl;
-                                Console.WriteLine($"[DEBUG] SUCCESS: TMDB poster found and applied!");
+                                Console.WriteLine($"[DEBUG] SUCCESS: TMDB poster and title applied!");
                             }
-                            else
-                            {
-                                Console.WriteLine($"[DEBUG] TMDB found the show, but no poster image was available.");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine($"[DEBUG] TMDB search returned null. Falling back to Archive.org thumbnail.");
                         }
                     }
                 }
@@ -160,38 +151,34 @@ namespace ArchivePlayer.Controllers
                 };
 
                 _context.MediaItems.Add(newMediaItem);
-                Console.WriteLine($"[DEBUG] Saved new MediaItem: {identifier}");
                 await _context.SaveChangesAsync();
             }
             else
             {
                 Console.WriteLine($"[DEBUG] Item already exists in database.");
 
-                // AUTO-UPGRADE: If it exists but lacks TMDB data, fetch it now!
-                if (string.IsNullOrEmpty(existingItem.TMDBPosterUrl) && existingItem.TMDBId == null)
+                bool isTitleMessy = existingItem.Title.Contains("dktale", StringComparison.OrdinalIgnoreCase) ||
+                                    existingItem.Title.Contains("_202", StringComparison.OrdinalIgnoreCase);
+
+                if (string.IsNullOrEmpty(existingItem.TMDBPosterUrl) || isTitleMessy)
                 {
-                    Console.WriteLine($"[DEBUG] Existing item lacks TMDB data. Fetching and upgrading now...");
+                    Console.WriteLine($"[DEBUG] Existing item lacks TMDB data or has messy title. Fetching and upgrading now...");
 
                     var tmdbResult = await _tmdbService.SearchByTitleAsync(existingItem.Title);
 
                     if (tmdbResult != null)
                     {
                         existingItem.TMDBPosterUrl = tmdbResult.Value.posterUrl;
+                        existingItem.Title = tmdbResult.Value.tmdbTitle;
                         existingItem.TMDBId = tmdbResult.Value.tmdbId;
                         existingItem.TMDBMediaType = tmdbResult.Value.mediaType;
 
                         if (!string.IsNullOrEmpty(existingItem.TMDBPosterUrl))
                         {
                             existingItem.ThumbnailUrl = existingItem.TMDBPosterUrl;
-                            Console.WriteLine($"[DEBUG] SUCCESS: Upgraded existing item with TMDB poster!");
                         }
                     }
-
                     await _context.SaveChangesAsync();
-                }
-                else
-                {
-                    Console.WriteLine($"[DEBUG] Item already has TMDB data, skipping fetch.");
                 }
             }
         }

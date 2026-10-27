@@ -1,5 +1,5 @@
 ﻿using System.Text.Json;
-using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 
 namespace ArchivePlayer.Services
 {
@@ -9,64 +9,64 @@ namespace ArchivePlayer.Services
         private readonly string _apiKey;
         private readonly string _imageBaseUrl = "https://image.tmdb.org/t/p/w500";
 
+        private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
         public TMDBService(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["TMDB:ApiKey"] ?? throw new Exception("TMDB API Key not configured in appsettings.json");
-            Console.WriteLine($"[TMDB] Service initialized with API Key: {_apiKey.Substring(0, 5)}...");
+            _apiKey = configuration["TMDB:ApiKey"] ?? throw new Exception("TMDB API Key not configured");
         }
 
-        public async Task<(string posterUrl, int? tmdbId, string mediaType)?> SearchByTitleAsync(string title)
+        public async Task<(string posterUrl, string tmdbTitle, int? tmdbId, string mediaType)?> SearchByTitleAsync(string title)
         {
             try
             {
-                var cleanTitle = System.Text.RegularExpressions.Regex.Replace(title, @"\s*\([^)]*\)", "").Trim();
+                var cleanTitle = title;
+
+                cleanTitle = System.Text.RegularExpressions.Regex.Replace(cleanTitle, @"[-_]?dktale.*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+                cleanTitle = System.Text.RegularExpressions.Regex.Replace(cleanTitle, @"[_]\d+$", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+                cleanTitle = System.Text.RegularExpressions.Regex.Replace(cleanTitle, @"\s*\([^)]*\)", "").Trim();
+
+                cleanTitle = cleanTitle.Replace("-", " ").Replace("_", " ").Trim();
+
                 cleanTitle = System.Text.RegularExpressions.Regex.Replace(cleanTitle, @"\s*-\s*S\d+E\d+.*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+                cleanTitle = System.Text.RegularExpressions.Regex.Replace(cleanTitle, @"\s*\d+x\d+.*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+                cleanTitle = System.Text.RegularExpressions.Regex.Replace(cleanTitle, @"\s+", " ").Trim();
 
                 Console.WriteLine($"[TMDB] Searching for cleaned title: '{cleanTitle}' (Original: '{title}')");
 
                 var url = $"https://api.themoviedb.org/3/search/multi?api_key={_apiKey}&query={Uri.EscapeDataString(cleanTitle)}&include_adult=false";
-                Console.WriteLine($"[TMDB] Request URL: {url}");
 
                 var response = await _httpClient.GetAsync(url);
-                Console.WriteLine($"[TMDB] Response Status: {response.StatusCode}");
+                var rawJson = await response.Content.ReadAsStringAsync();
 
-                if (!response.IsSuccessStatusCode)
+                if (!response.IsSuccessStatusCode) return null;
+
+                var result = JsonSerializer.Deserialize<TMDBSearchResult>(rawJson, _jsonOptions);
+
+                if (result?.Results != null && result.Results.Any())
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"[TMDB] Error Response: {errorContent}");
-                }
-                else
-                {
-                    var json = await response.Content.ReadAsStringAsync();
-                    var result = JsonSerializer.Deserialize<TMDBSearchResult>(json);
+                    var bestMatch = result.Results.FirstOrDefault(r => r.MediaType == "tv" || r.MediaType == "movie")
+                                    ?? result.Results.First();
 
-                    if (result?.Results != null && result.Results.Any())
-                    {
-                        // Prefer 'tv' or 'movie' over 'person' or other types
-                        var bestMatch = result.Results.FirstOrDefault(r => r.MediaType == "tv" || r.MediaType == "movie")
-                                        ?? result.Results.First();
+                    var posterUrl = string.IsNullOrEmpty(bestMatch.PosterPath)
+                        ? null
+                        : $"{_imageBaseUrl}{bestMatch.PosterPath}";
 
-                        Console.WriteLine($"[TMDB] Found match: '{bestMatch.Title ?? bestMatch.Name}' (Type: {bestMatch.MediaType})");
+                    var finalTitle = bestMatch.Title ?? bestMatch.Name ?? cleanTitle;
 
-                        var posterUrl = string.IsNullOrEmpty(bestMatch.PosterPath)
-                            ? null
-                            : $"{_imageBaseUrl}{bestMatch.PosterPath}";
-
-                        Console.WriteLine($"[TMDB] Poster URL: {posterUrl ?? "None"}");
-
-                        return (posterUrl, bestMatch.Id, bestMatch.MediaType);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[TMDB] No results found for '{cleanTitle}'");
-                    }
+                    return (posterUrl, finalTitle, bestMatch.Id, bestMatch.MediaType);
                 }
                 return null;
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"[TMDB] Exception during search: {ex.Message}");
                 return null;
             }
         }
@@ -75,14 +75,12 @@ namespace ArchivePlayer.Services
         {
             try
             {
-                Console.WriteLine($"[TMDB] Fetching episodes for TV ID: {tvId}");
                 var url = $"https://api.themoviedb.org/3/tv/{tvId}?api_key={_apiKey}&append_to_response=external_ids";
-
                 var response = await _httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode) return null;
 
-                var json = await response.Content.ReadAsStringAsync();
-                var details = JsonSerializer.Deserialize<TMDBTvDetails>(json);
+                var rawJson = await response.Content.ReadAsStringAsync();
+                var details = JsonSerializer.Deserialize<TMDBTvDetails>(rawJson, _jsonOptions);
 
                 if (details?.Seasons == null) return null;
 
@@ -92,11 +90,10 @@ namespace ArchivePlayer.Services
                 {
                     var seasonUrl = $"https://api.themoviedb.org/3/tv/{tvId}/season/{season.SeasonNumber}?api_key={_apiKey}";
                     var seasonResponse = await _httpClient.GetAsync(seasonUrl);
-
                     if (!seasonResponse.IsSuccessStatusCode) continue;
 
                     var seasonJson = await seasonResponse.Content.ReadAsStringAsync();
-                    var seasonDetails = JsonSerializer.Deserialize<TMDBSeasonDetails>(seasonJson);
+                    var seasonDetails = JsonSerializer.Deserialize<TMDBSeasonDetails>(seasonJson, _jsonOptions);
 
                     if (seasonDetails?.Episodes != null)
                     {
@@ -114,59 +111,20 @@ namespace ArchivePlayer.Services
                         }
                     }
                 }
-
-                Console.WriteLine($"[TMDB] Found {episodes.Count} episodes for TV ID {tvId}");
                 return episodes;
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"[TMDB] Exception fetching episodes: {ex.Message}");
                 return null;
             }
         }
     }
 
-    public class TMDBSearchResult
-    {
-        public List<TMDBResult>? Results { get; set; }
-    }
-
-    public class TMDBResult
-    {
-        public string? Title { get; set; }
-        public string? Name { get; set; }
-        public string? PosterPath { get; set; }
-        public string? MediaType { get; set; }
-        public int Id { get; set; }
-    }
-
-    public class TMDBTvDetails
-    {
-        public List<TMDBSeason>? Seasons { get; set; }
-    }
-
-    public class TMDBSeason
-    {
-        public int SeasonNumber { get; set; }
-    }
-
-    public class TMDBSeasonDetails
-    {
-        public List<TMDBEpisode>? Episodes { get; set; }
-    }
-
-    public class TMDBEpisode
-    {
-        public int EpisodeNumber { get; set; }
-        public string? Name { get; set; }
-        public string? StillPath { get; set; }
-    }
-
-    public class TMDBEpisodeInfo
-    {
-        public int SeasonNumber { get; set; }
-        public int EpisodeNumber { get; set; }
-        public string? Name { get; set; }
-        public string? StillUrl { get; set; }
-    }
+    public class TMDBSearchResult { [JsonPropertyName("results")] public List<TMDBResult>? Results { get; set; } }
+    public class TMDBResult { [JsonPropertyName("title")] public string? Title { get; set; } [JsonPropertyName("name")] public string? Name { get; set; } [JsonPropertyName("poster_path")] public string? PosterPath { get; set; } [JsonPropertyName("media_type")] public string? MediaType { get; set; } [JsonPropertyName("id")] public int Id { get; set; } }
+    public class TMDBTvDetails { [JsonPropertyName("seasons")] public List<TMDBSeason>? Seasons { get; set; } }
+    public class TMDBSeason { [JsonPropertyName("season_number")] public int SeasonNumber { get; set; } }
+    public class TMDBSeasonDetails { [JsonPropertyName("episodes")] public List<TMDBEpisode>? Episodes { get; set; } }
+    public class TMDBEpisode { [JsonPropertyName("episode_number")] public int EpisodeNumber { get; set; } [JsonPropertyName("name")] public string? Name { get; set; } [JsonPropertyName("still_path")] public string? StillPath { get; set; } }
+    public class TMDBEpisodeInfo { public int SeasonNumber { get; set; } public int EpisodeNumber { get; set; } public string? Name { get; set; } public string? StillUrl { get; set; } }
 }
