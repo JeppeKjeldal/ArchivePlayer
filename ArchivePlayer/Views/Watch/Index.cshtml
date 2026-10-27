@@ -1,10 +1,10 @@
 ﻿@model ArchivePlayer.Models.MediaItem
-@using ArchivePlayer.Services
+@using ArchivePlayer.Models
 
 @{
     ViewData["Title"] = Model?.Title ?? "Watch";
     var videoFiles = ViewBag.VideoFiles as List<string> ?? new List<string>();
-    var episodeThumbnails = ViewBag.EpisodeThumbnails as List<TMDBEpisodeInfo>;
+    var episodeThumbnails = ViewBag.EpisodeThumbnails as List<TmdbEpisodeInfo>;
     var hasMultipleFiles = videoFiles.Count > 1;
     var watchProgressSeconds = ViewBag.WatchProgressSeconds as int? ?? 0;
     var currentEpisode = ViewBag.CurrentEpisode as string;
@@ -126,7 +126,7 @@
 <script type="application/json" id="videoPlayerData">
 {
     "episodes": @Html.Raw(Json.Serialize(videoFiles)),
-    "episodeThumbnails": @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TMDBEpisodeInfo>()))
+    "episodeThumbnails": @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TmdbEpisodeInfo>()))
 }
 </script>
 

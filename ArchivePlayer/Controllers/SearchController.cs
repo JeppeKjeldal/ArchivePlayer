@@ -117,14 +117,14 @@ namespace ArchivePlayer.Controllers
                         string archiveTitle = metadata.GetProperty("title").GetString() ?? identifier;
                         title = archiveTitle;
 
-                        var tmdbResult = await _tmdbService.SearchByTitleAsync(archiveTitle);
+                        var tmdbResult = await _tmdbService.FindMatchAsync(archiveTitle);
 
                         if (tmdbResult != null)
                         {
-                            tmdbPosterUrl = tmdbResult.Value.posterUrl;
-                            title = tmdbResult.Value.tmdbTitle;
-                            tmdbId = tmdbResult.Value.tmdbId;
-                            tmdbMediaType = tmdbResult.Value.mediaType;
+                            tmdbPosterUrl = tmdbResult.PosterUrl;
+                            title = tmdbResult.Title;
+                            tmdbId = tmdbResult.TmdbId;
+                            tmdbMediaType = tmdbResult.MediaType;
 
                             if (!string.IsNullOrEmpty(tmdbPosterUrl))
                             {
@@ -164,14 +164,14 @@ namespace ArchivePlayer.Controllers
                 {
                     Console.WriteLine($"[DEBUG] Existing item lacks TMDB data or has messy title. Fetching and upgrading now...");
 
-                    var tmdbResult = await _tmdbService.SearchByTitleAsync(existingItem.Title);
+                    var tmdbResult = await _tmdbService.FindMatchAsync(existingItem.Title);
 
                     if (tmdbResult != null)
                     {
-                        existingItem.TMDBPosterUrl = tmdbResult.Value.posterUrl;
-                        existingItem.Title = tmdbResult.Value.tmdbTitle;
-                        existingItem.TMDBId = tmdbResult.Value.tmdbId;
-                        existingItem.TMDBMediaType = tmdbResult.Value.mediaType;
+                        existingItem.TMDBPosterUrl = tmdbResult.PosterUrl;
+                        existingItem.Title = tmdbResult.Title;
+                        existingItem.TMDBId = tmdbResult.TmdbId;
+                        existingItem.TMDBMediaType = tmdbResult.MediaType;
 
                         if (!string.IsNullOrEmpty(existingItem.TMDBPosterUrl))
                         {

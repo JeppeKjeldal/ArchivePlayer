@@ -44,10 +44,10 @@ namespace ArchivePlayer.Controllers
             var videoFiles = await GetAvailableVideoFilesAsync(id);
             ViewBag.VideoFiles = videoFiles;
 
-            List<TMDBEpisodeInfo>? episodeThumbnails = null;
+            List<TmdbEpisodeInfo>? episodeThumbnails = null;
             if (mediaItem.TMDBId.HasValue && mediaItem.TMDBMediaType == "tv")
             {
-                episodeThumbnails = await _tmdbService.GetEpisodesAsync(mediaItem.TMDBId.Value);
+                episodeThumbnails = await _tmdbService.FetchEpisodesAsync(mediaItem.TMDBId.Value);
             }
             ViewBag.EpisodeThumbnails = episodeThumbnails;
 
