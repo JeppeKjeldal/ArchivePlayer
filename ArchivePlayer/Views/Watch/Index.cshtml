@@ -34,8 +34,9 @@
 
     <!-- Video Info -->
     <div class="w-full max-w-5xl mt-6">
-        <h1 class="text-3xl font-bold text-white mb-2">@(Model?.Title ?? "Unknown Title")</h1>
-        <p class="text-gray-400">@(Model?.Description ?? "No description available.")</p>
+        <h1 id="videoTitle" class="text-3xl font-bold text-white mb-2">@(Model?.Title ?? "Unknown Title")</h1>
+        <p id="episodeInfo" class="text-gray-400 text-lg mb-2"></p>
+        <p id="episodeDescription" class="text-gray-400">@(Model?.Description ?? "No description available.")</p>
     </div>
 
     <!-- Episode Selector (Only shows if multiple files exist) -->
@@ -59,141 +60,223 @@
         </div>
 
         <script>
-            const episodes = @Html.Raw(Json.Serialize(videoFiles));
-            const episodeThumbnails = @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TMDBEpisodeInfo>()));
-            const seasonMap = {};
-            const identifier = '@(Model?.Identifier)';
-            const savedProgress = @watchProgressSeconds;
-            const savedEpisode = '@(currentEpisode ?? "")';
+    const episodes = @Html.Raw(Json.Serialize(videoFiles));
+    const episodeThumbnails = @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TMDBEpisodeInfo>()));
+    const seasonMap = {};
+    const identifier = '@(Model?.Identifier)';
+    const savedProgress = @watchProgressSeconds;
+    const savedEpisode = '@(currentEpisode ?? "")';
 
-            episodes.forEach((file, index) => {
-                const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i) || file.match(/(\d+)x\d+/i);
-                const season = seasonMatch ? `Season ${seasonMatch[1].padStart(2, '0')}` : 'Other';
-                
-                if (!seasonMap[season]) {
-                    seasonMap[season] = [];
-                }
-                
-                let thumbnailUrl = null;
-                let episodeName = file;
-                
-                const epMatch = file.match(/E(\d+)/i) || file.match(/Ep(?:isode)?\s*(\d+)/i) || file.match(/\d+x(\d+)/i);
-                const epNum = epMatch ? parseInt(epMatch[1]) : null;
-                const seasonNum = seasonMatch ? parseInt(seasonMatch[1]) : null;
-                
-                if (seasonNum && epNum && episodeThumbnails.length > 0) {
-                    const tmdbEp = episodeThumbnails.find(e => e.seasonNumber === seasonNum && e.episodeNumber === epNum);
-                    if (tmdbEp) {
-                        thumbnailUrl = tmdbEp.stillUrl;
-                        episodeName = tmdbEp.name || file;
-                    }
-                }
-                
-                seasonMap[season].push({
-                    filename: file,
-                    thumbnail: thumbnailUrl,
-                    name: episodeName,
-                    episodeNum: epNum
-                });
-            });
-
-            const seasonSelect = document.getElementById('seasonSelect');
-            Object.keys(seasonMap).sort().forEach(season => {
-                const option = document.createElement('option');
-                option.value = season;
-                option.textContent = `${season} (${seasonMap[season].length} episodes)`;
-                seasonSelect.appendChild(option);
-            });
-
-            // Function to play an episode
-            function playEpisode(filename, startTime = 0) {
-                const videoElement = document.getElementById('videoPlayer');
-                const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
-                videoElement.src = newSrc;
-                videoElement.currentTime = startTime;
-                videoElement.load();
-                videoElement.play();
-                
-                // Save current episode to localStorage for progress tracking
-                localStorage.setItem('currentEpisode', filename);
+    // Build season map with episode data
+    episodes.forEach((file, index) => {
+        const seasonMatch = file.match(/S(\d+)/i) || file.match(/Season\s*(\d+)/i) || file.match(/(\d+)x\d+/i);
+        const season = seasonMatch ? `Season ${seasonMatch[1].padStart(2, '0')}` : 'Other';
+        
+        if (!seasonMap[season]) {
+            seasonMap[season] = [];
+        }
+        
+        let thumbnailUrl = null;
+        let episodeName = file;
+        let episodeOverview = null;
+        
+        const epMatch = file.match(/E(\d+)/i) || file.match(/Ep(?:isode)?\s*(\d+)/i) || file.match(/\d+x(\d+)/i);
+        const epNum = epMatch ? parseInt(epMatch[1]) : null;
+        const seasonNum = seasonMatch ? parseInt(seasonMatch[1]) : null;
+        
+        if (seasonNum && epNum && episodeThumbnails.length > 0) {
+            const tmdbEp = episodeThumbnails.find(e => e.seasonNumber === seasonNum && e.episodeNumber === epNum);
+            if (tmdbEp) {
+                thumbnailUrl = tmdbEp.stillUrl;
+                episodeName = tmdbEp.name || file;
+                episodeOverview = tmdbEp.overview;
             }
+        }
+        
+        seasonMap[season].push({
+            filename: file,
+            thumbnail: thumbnailUrl,
+            name: episodeName,
+            episodeNum: epNum,
+            seasonNum: seasonNum,
+            overview: episodeOverview
+        });
+    });
 
-            // Function to save progress
-            function saveProgress() {
-                const videoElement = document.getElementById('videoPlayer');
-                const progressSeconds = Math.floor(videoElement.currentTime);
-                const currentEpisode = localStorage.getItem('currentEpisode') || '';
-                
-                fetch('/Watch/SaveProgress', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `identifier=${encodeURIComponent(identifier)}&progressSeconds=${progressSeconds}&episodeFileName=${encodeURIComponent(currentEpisode)}`
-                });
+    // Populate season dropdown
+    const seasonSelect = document.getElementById('seasonSelect');
+    Object.keys(seasonMap).sort().forEach(season => {
+        const option = document.createElement('option');
+        option.value = season;
+        option.textContent = `${season} (${seasonMap[season].length} episodes)`;
+        seasonSelect.appendChild(option);
+    });
+
+    // Find which season an episode belongs to
+    function findSeasonForEpisode(filename) {
+        for (const [season, eps] of Object.entries(seasonMap)) {
+            if (eps.some(ep => ep.filename === filename)) {
+                return season;
             }
+        }
+        return 'all';
+    }
 
-            // Save progress every 10 seconds
-            setInterval(saveProgress, 10000);
+    // Function to update episode info display
+    function updateEpisodeInfo(ep) {
+        const titleElement = document.getElementById('videoTitle');
+        const episodeInfoElement = document.getElementById('episodeInfo');
+        const descriptionElement = document.getElementById('episodeDescription');
+        
+        if (ep.seasonNum && ep.episodeNum) {
+            const episodeTitle = ep.name ? ` - ${ep.name}` : '';
+            episodeInfoElement.textContent = `Season ${ep.seasonNum}, Episode ${ep.episodeNum}${episodeTitle}`;
+        } else {
+            episodeInfoElement.textContent = '';
+        }
+        
+        if (ep.overview) {
+            descriptionElement.textContent = ep.overview;
+        } else {
+            descriptionElement.textContent = '@(Model?.Description ?? "No description available.")';
+        }
+    }
 
-            // Save progress when leaving page
-            window.addEventListener('beforeunload', saveProgress);
+    // Function to highlight the currently playing episode
+    function highlightCurrentEpisode(filename) {
+        // Remove highlight from all episodes
+        document.querySelectorAll('#episodesContainer > div').forEach(div => {
+            div.classList.remove('border-netflix-red', 'ring-2', 'ring-netflix-red');
+            div.classList.add('border-gray-700');
+        });
+        
+        // Add highlight to current episode
+        const currentDiv = document.querySelector(`#episodesContainer > div[data-filename="${filename}"]`);
+        if (currentDiv) {
+            currentDiv.classList.remove('border-gray-700');
+            currentDiv.classList.add('border-netflix-red', 'ring-2', 'ring-netflix-red');
+            
+            // Scroll to center the highlighted episode
+            currentDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }
 
-            // Populate episodes
-            seasonSelect.addEventListener('change', function() {
-                const selectedSeason = this.value;
-                const episodesContainer = document.getElementById('episodesContainer');
-                
-                episodesContainer.innerHTML = '';
-                
-                const episodesToShow = selectedSeason === 'all' 
-                    ? Object.values(seasonMap).flat()
-                    : (seasonMap[selectedSeason] || []);
+    // Function to play an episode
+    function playEpisode(filename, startTime = 0) {
+        const videoElement = document.getElementById('videoPlayer');
+        const newSrc = `https://archive.org/download/${identifier}/${encodeURIComponent(filename)}`;
+        videoElement.src = newSrc;
+        videoElement.currentTime = startTime;
+        videoElement.load();
+        videoElement.play();
+        
+        // Save current episode to localStorage for progress tracking
+        localStorage.setItem('currentEpisode', filename);
+        
+        // Highlight the current episode
+        highlightCurrentEpisode(filename);
+        
+        // Find the episode data and update info
+        const allEpisodes = Object.values(seasonMap).flat();
+        const currentEp = allEpisodes.find(e => e.filename === filename);
+        if (currentEp) {
+            updateEpisodeInfo(currentEp);
+        }
+    }
 
-                episodesToShow.forEach(ep => {
-                    const div = document.createElement('div');
-                    div.className = 'flex-shrink-0 w-64 bg-gray-800 rounded-lg overflow-hidden hover:scale-105 cursor-pointer transition border border-gray-700 hover:border-netflix-red';
-                    div.setAttribute('data-filename', ep.filename);
-                    
-                    const displayName = ep.episodeNum ? `Episode ${ep.episodeNum}` : ep.name;
-                    
-                    div.innerHTML = `
-                        ${ep.thumbnail ? `
-                            <div class="aspect-video bg-black">
-                                <img src="${ep.thumbnail}" alt="${ep.name}" class="w-full h-full object-cover" />
-                            </div>
-                        ` : `
-                            <div class="aspect-video bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4zm2 0h1V9h-1v2zm1-4V5h-1v2h1zM5 5v2H4V5h1zm-1 4h1v2H4V9zm0 4h1v2H4v-2z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                        `}
-                        <div class="p-3 bg-gray-900">
-                            <p class="text-white font-semibold text-sm truncate">${displayName}</p>
-                            <p class="text-gray-400 text-xs mt-1 truncate" title="${ep.filename}">${ep.name}</p>
-                        </div>
-                    `;
-                    
-                    div.addEventListener('click', function() {
-                        const filename = this.getAttribute('data-filename');
-                        playEpisode(filename, 0);
-                    });
-                    
-                    episodesContainer.appendChild(div);
-                });
+    // Function to save progress
+    function saveProgress() {
+        const videoElement = document.getElementById('videoPlayer');
+        const progressSeconds = Math.floor(videoElement.currentTime);
+        const currentEpisode = localStorage.getItem('currentEpisode') || '';
+        
+        fetch('/Watch/SaveProgress', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `identifier=${encodeURIComponent(identifier)}&progressSeconds=${progressSeconds}&episodeFileName=${encodeURIComponent(currentEpisode)}`
+        });
+    }
+
+    // Save progress every 10 seconds
+    setInterval(saveProgress, 10000);
+
+    // Save progress when leaving page
+    window.addEventListener('beforeunload', saveProgress);
+
+    // Populate episodes
+    seasonSelect.addEventListener('change', function() {
+        const selectedSeason = this.value;
+        const episodesContainer = document.getElementById('episodesContainer');
+        
+        episodesContainer.innerHTML = '';
+        
+        const episodesToShow = selectedSeason === 'all' 
+            ? Object.values(seasonMap).flat()
+            : (seasonMap[selectedSeason] || []);
+
+        // Get currently playing episode
+        const currentPlaying = localStorage.getItem('currentEpisode') || savedEpisode;
+
+        episodesToShow.forEach(ep => {
+            const div = document.createElement('div');
+            const isCurrentEpisode = ep.filename === currentPlaying;
+            
+            div.className = `flex-shrink-0 w-64 bg-gray-800 rounded-lg overflow-hidden hover:scale-105 cursor-pointer transition border ${isCurrentEpisode ? 'border-netflix-red ring-2 ring-netflix-red' : 'border-gray-700 hover:border-netflix-red'}`;
+            div.setAttribute('data-filename', ep.filename);
+            
+            const displayName = ep.episodeNum ? `Episode ${ep.episodeNum}` : ep.name;
+            
+            div.innerHTML = `
+                ${ep.thumbnail ? `
+                    <div class="aspect-video bg-black">
+                        <img src="${ep.thumbnail}" alt="${ep.name}" class="w-full h-full object-cover" />
+                    </div>
+                ` : `
+                    <div class="aspect-video bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4zm2 0h1V9h-1v2zm1-4V5h-1v2h1zM5 5v2H4V5h1zm-1 4h1v2H4V9zm0 4h1v2H4v-2z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                `}
+                <div class="p-3 bg-gray-900">
+                    <p class="text-white font-semibold text-sm truncate">${displayName}</p>
+                    <p class="text-gray-400 text-xs mt-1 truncate" title="${ep.filename}">${ep.name}</p>
+                </div>
+            `;
+            
+            div.addEventListener('click', function() {
+                const filename = this.getAttribute('data-filename');
+                playEpisode(filename, 0);
             });
+            
+            episodesContainer.appendChild(div);
+        });
 
-            // Initial load
-            seasonSelect.dispatchEvent(new Event('change'));
-
-            // Resume from saved progress
-            if (savedEpisode && episodes.includes(savedEpisode)) {
-                playEpisode(savedEpisode, savedProgress);
-            } else if (episodes.length > 0) {
-                playEpisode(episodes[0], 0);
+        // Scroll to highlighted episode after populating
+        setTimeout(() => {
+            if (currentPlaying) {
+                highlightCurrentEpisode(currentPlaying);
             }
-        </script>
+        }, 100);
+    });
+
+    // Initial load - auto-select the correct season
+    if (savedEpisode) {
+        const seasonForSaved = findSeasonForEpisode(savedEpisode);
+        seasonSelect.value = seasonForSaved;
+    }
+    
+    seasonSelect.dispatchEvent(new Event('change'));
+
+    // Resume from saved progress
+    if (savedEpisode && episodes.includes(savedEpisode)) {
+        playEpisode(savedEpisode, savedProgress);
+    } else if (episodes.length > 0) {
+        playEpisode(episodes[0], 0);
+    }
+</script>
     }
     else
     {

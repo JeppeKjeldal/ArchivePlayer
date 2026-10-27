@@ -106,7 +106,8 @@ namespace ArchivePlayer.Services
                                 Name = episode.Name,
                                 StillUrl = string.IsNullOrEmpty(episode.StillPath)
                                     ? null
-                                    : $"https://image.tmdb.org/t/p/w300{episode.StillPath}"
+                                    : $"https://image.tmdb.org/t/p/w300{episode.StillPath}",
+                                Overview = episode.Overview
                             });
                         }
                     }
@@ -125,6 +126,26 @@ namespace ArchivePlayer.Services
     public class TMDBTvDetails { [JsonPropertyName("seasons")] public List<TMDBSeason>? Seasons { get; set; } }
     public class TMDBSeason { [JsonPropertyName("season_number")] public int SeasonNumber { get; set; } }
     public class TMDBSeasonDetails { [JsonPropertyName("episodes")] public List<TMDBEpisode>? Episodes { get; set; } }
-    public class TMDBEpisode { [JsonPropertyName("episode_number")] public int EpisodeNumber { get; set; } [JsonPropertyName("name")] public string? Name { get; set; } [JsonPropertyName("still_path")] public string? StillPath { get; set; } }
-    public class TMDBEpisodeInfo { public int SeasonNumber { get; set; } public int EpisodeNumber { get; set; } public string? Name { get; set; } public string? StillUrl { get; set; } }
+    public class TMDBEpisode
+    {
+        [JsonPropertyName("episode_number")]
+        public int EpisodeNumber { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("still_path")]
+        public string? StillPath { get; set; }
+
+        [JsonPropertyName("overview")]
+        public string? Overview { get; set; }
+    }
+    public class TMDBEpisodeInfo
+    {
+        public int SeasonNumber { get; set; }
+        public int EpisodeNumber { get; set; }
+        public string? Name { get; set; }
+        public string? StillUrl { get; set; }
+        public string? Overview { get; set; }
+    }
 }
