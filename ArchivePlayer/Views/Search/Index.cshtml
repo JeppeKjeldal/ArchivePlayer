@@ -46,7 +46,6 @@
 
             <!-- Search Results Grid -->
             <div id="searchResults" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                <!-- Results will be injected here by JS -->
                 <div id="searchPlaceholder" class="col-span-full text-center py-12 text-gray-500">
                     <p>Type a query above to find content on Archive.org</p>
                 </div>
@@ -55,6 +54,12 @@
             <div id="searchLoading" class="hidden text-center py-12">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-netflix-red"></div>
                 <p class="text-gray-400 mt-2">Searching Archive.org...</p>
+            </div>
+
+            <div id="loadMoreContainer" class="hidden text-center mt-8">
+                <button onclick="loadMore()" id="loadMoreBtn" class="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg border border-gray-700 transition">
+                    Load More Results
+                </button>
             </div>
         </div>
 
@@ -93,9 +98,12 @@
 
 @section Scripts {
     <script>
-        // Let Razor generate the exact URLs for us - this prevents 404s!
         const liveSearchUrl = '@Url.Action("LiveSearch", "Search")';
         const addSourceUrl = '@Url.Action("AddSource", "Search")';
+        
+        let currentPage = 1;
+        let currentQuery = '';
+        let isSearching = false;
 
         function switchTab(tab) {
             const tabSearch = document.getElementById('tabSearch');
@@ -116,43 +124,56 @@
             }
         }
 
-        async function performSearch() {
-            const query = document.getElementById('searchQuery').value.trim();
-            if (!query) return;
+        async function performSearch(reset = true) {
+            if (isSearching) return;
+            
+            const queryInput = document.getElementById('searchQuery');
+            if (reset) {
+                currentQuery = queryInput.value.trim();
+                currentPage = 1;
+                if (!currentQuery) return;
+                
+                const resultsContainer = document.getElementById('searchResults');
+                const placeholder = document.getElementById('searchPlaceholder');
+                if (placeholder) placeholder.remove();
+                resultsContainer.innerHTML = '';
+                document.getElementById('loadMoreContainer').classList.add('hidden');
+            } else {
+                currentQuery = queryInput.value.trim();
+                if (!currentQuery) return;
+            }
 
-            const resultsContainer = document.getElementById('searchResults');
-            const placeholder = document.getElementById('searchPlaceholder');
+            isSearching = true;
             const loading = document.getElementById('searchLoading');
-
-            if(placeholder) placeholder.remove();
-            resultsContainer.innerHTML = '';
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            
             loading.classList.remove('hidden');
+            if (loadMoreBtn) loadMoreBtn.disabled = true;
 
             try {
-                // Use the Razor-generated URL
-                const response = await fetch(`${liveSearchUrl}?query=${encodeURIComponent(query)}`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const response = await fetch(`${liveSearchUrl}?query=${encodeURIComponent(currentQuery)}&page=${currentPage}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-                const results = await response.json();
+                const data = await response.json();
                 loading.classList.add('hidden');
+                isSearching = false;
+                if (loadMoreBtn) loadMoreBtn.disabled = false;
 
-                if (results.length === 0) {
-                    resultsContainer.innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">No results found. Try a different search term.</div>';
+                if (data.results && data.results.length === 0 && currentPage === 1) {
+                    document.getElementById('searchResults').innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">No video results found. Try a different search term.</div>';
                     return;
                 }
 
                 const category = document.getElementById('searchCategory').value;
+                const resultsContainer = document.getElementById('searchResults');
 
-                results.forEach(item => {
+                data.results.forEach(item => {
                     const card = document.createElement('div');
                     card.className = 'bg-gray-900 rounded-lg overflow-hidden border border-gray-800 hover:border-netflix-red transition group';
                     card.innerHTML = `
                         <div class="aspect-[2/3] bg-black relative">
                             <img src="${item.thumbnailUrl}" alt="${item.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
-                            <div class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">${item.mediaType}</div>
+                            <div class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded uppercase">${item.mediaType}</div>
                         </div>
                         <div class="p-3">
                             <h3 class="text-white font-semibold text-sm line-clamp-2 mb-3" title="${item.title}">${item.title}</h3>
@@ -167,11 +188,29 @@
                     `;
                     resultsContainer.appendChild(card);
                 });
+
+                const loadMoreContainer = document.getElementById('loadMoreContainer');
+                if (data.hasMoreResults) {
+                    loadMoreContainer.classList.remove('hidden');
+                } else {
+                    loadMoreContainer.classList.add('hidden');
+                }
+
             } catch (error) {
                 loading.classList.add('hidden');
-                resultsContainer.innerHTML = '<div class="col-span-full text-center py-12 text-red-500">An error occurred while searching. Check console.</div>';
+                isSearching = false;
+                if (loadMoreBtn) loadMoreBtn.disabled = false;
+                
+                if (currentPage === 1) {
+                    document.getElementById('searchResults').innerHTML = '<div class="col-span-full text-center py-12 text-red-500">An error occurred while searching.</div>';
+                }
                 console.error('Search error:', error);
             }
+        }
+
+        function loadMore() {
+            currentPage++;
+            performSearch(false);
         }
     </script>
 }

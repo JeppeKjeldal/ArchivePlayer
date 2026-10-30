@@ -90,10 +90,10 @@ namespace ArchivePlayer.Controllers
         }
 
         [HttpGet("LiveSearch")]
-        public async Task<IActionResult> LiveSearch(string query)
+        public async Task<IActionResult> LiveSearch(string query, int page = 1)
         {
-            var results = await _archiveSearchService.SearchAsync(query);
-            return Json(results);
+            var response = await _archiveSearchService.SearchAsync(query, page);
+            return Json(response);
         }
 
         private async Task CreateNewMediaItem(string identifier)
