@@ -1,5 +1,6 @@
 using ArchivePlayer.Data;
 using ArchivePlayer.Models;
+using ArchivePlayer.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<ArchivePlayer.Services.TMDBService>();
+builder.Services.AddScoped<ArchiveSearchService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options => 
 options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 

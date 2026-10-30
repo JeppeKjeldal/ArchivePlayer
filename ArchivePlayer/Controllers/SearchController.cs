@@ -10,23 +10,27 @@ using System.Text.Json;
 namespace ArchivePlayer.Controllers
 {
     [Authorize]
+    [Route("[controller]")]
     public class SearchController : Controller
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly HttpClient _httpClient;
         private readonly TMDBService _tmdbService;
+        private readonly ArchiveSearchService _archiveSearchService;
 
         public SearchController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             HttpClient httpClient,
-            TMDBService tmdbService)
+            TMDBService tmdbService,
+            ArchiveSearchService archiveSearchService)
         {
             _context = context;
             _userManager = userManager;
             _httpClient = httpClient;
             _tmdbService = tmdbService;
+            _archiveSearchService = archiveSearchService;
         }
 
         [HttpGet]
@@ -83,6 +87,13 @@ namespace ArchivePlayer.Controllers
             await CreateNewUserMediaItem(mediaItem, currentUser.Id, searchInputModel.CategoryName);
 
             return RedirectToAction("Index", "Home");
+        }
+
+        [HttpGet("LiveSearch")]
+        public async Task<IActionResult> LiveSearch(string query)
+        {
+            var results = await _archiveSearchService.SearchAsync(query);
+            return Json(results);
         }
 
         private async Task CreateNewMediaItem(string identifier)
@@ -193,7 +204,6 @@ namespace ArchivePlayer.Controllers
             };
 
             _context.UserMediaItems.Add(newUserMediaItem);
-
             await _context.SaveChangesAsync();
         }
     }

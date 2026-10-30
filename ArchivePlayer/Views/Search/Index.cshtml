@@ -2,66 +2,176 @@
 
 @{
     ViewData["Title"] = "Add Source";
-    var existingCategories = ViewBag.ExistingCategories as List<string> ?? new List<string>();
+    var categories = ViewBag.ExistingCategories as List<string> ?? new List<string>();
 }
 
-<div class="min-h-screen bg-netflix-black flex items-center justify-center p-4">
-    <div class="w-full max-w-2xl">
-        
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-2">Add Source</h1>
-            <p class="text-gray-400">Paste an Archive.org URL or identifier to add content to your library</p>
-        </div>
+<div class="min-h-screen bg-netflix-black flex flex-col items-center p-8">
+    <div class="w-full max-w-4xl">
+        <h1 class="text-3xl font-bold text-white mb-8 text-center">Add to Your Library</h1>
 
-        <!-- Form -->
-        <form asp-action="AddSource" method="post" class="bg-netflix-dark rounded-lg border border-gray-800 p-8">
-            
-            <!-- Archive.org Input -->
-            <div class="mb-6">
-                <label asp-for="InputString" class="block text-gray-300 text-sm font-semibold mb-2">
-                    Archive.org URL or Identifier
-                </label>
-                <input asp-for="InputString" 
-                       type="text" 
-                       placeholder="https://archive.org/details/identifier or just 'identifier'"
-                       class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" />
-                <span asp-validation-for="InputString" class="text-netflix-red text-sm mt-1"></span>
-            </div>
-
-            <!-- Category Input with Autocomplete -->
-            <div class="mb-8">
-                <label asp-for="CategoryName" class="block text-gray-300 text-sm font-semibold mb-2">
-                    Category
-                </label>
-                <input asp-for="CategoryName" 
-                       type="text" 
-                       list="categorySuggestions"
-                       placeholder="Type a category name (e.g., Anime, Movies, Cartoons)"
-                       class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" />
-                <datalist id="categorySuggestions">
-                    @foreach (var category in existingCategories)
-                    {
-                        <option value="@category"></option>
-                    }
-                </datalist>
-                <span asp-validation-for="CategoryName" class="text-netflix-red text-sm mt-1"></span>
-                <p class="text-gray-500 text-xs mt-2">Start typing to see your existing categories, or type a new one</p>
-            </div>
-
-            <!-- Submit Button -->
-            <button type="submit" class="w-full bg-netflix-red text-white px-6 py-3 rounded font-semibold hover:bg-red-700 transition">
-                Add to Library
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-700 mb-6">
+            <button id="tabSearch" class="flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition" onclick="switchTab('search')">
+                🔍 Search Archive.org
             </button>
-
-        </form>
-
-        <!-- Back Link -->
-        <div class="text-center mt-6">
-            <a href="/" class="text-gray-400 hover:text-white transition">
-                ← Back to Home
-            </a>
+            <button id="tabUrl" class="flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition" onclick="switchTab('url')">
+                🔗 Paste Direct Link
+            </button>
         </div>
 
+        <!-- TAB 1: Live Search -->
+        <div id="contentSearch" class="block">
+            <div class="bg-netflix-dark p-6 rounded-lg border border-gray-800 mb-6">
+                <div class="flex gap-4">
+                    <input type="text" id="searchQuery" placeholder="e.g., Ultimate Spider-Man, Chowder, public domain movies..." 
+                           class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red"
+                           onkeydown="if(event.key === 'Enter') performSearch()">
+                    <button onclick="performSearch()" class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
+                        Search
+                    </button>
+                </div>
+                
+                <!-- Default Category for Search Adds -->
+                <div class="mt-4 flex items-center gap-3">
+                    <label class="text-gray-400 text-sm">Add to category:</label>
+                    <select id="searchCategory" class="bg-gray-900 text-white border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-netflix-red">
+                        <option value="Uncategorized">Uncategorized</option>
+                        @foreach (var cat in categories)
+                        {
+                            <option value="@cat">@cat</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Search Results Grid -->
+            <div id="searchResults" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <!-- Results will be injected here by JS -->
+                <div id="searchPlaceholder" class="col-span-full text-center py-12 text-gray-500">
+                    <p>Type a query above to find content on Archive.org</p>
+                </div>
+            </div>
+            
+            <div id="searchLoading" class="hidden text-center py-12">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-netflix-red"></div>
+                <p class="text-gray-400 mt-2">Searching Archive.org...</p>
+            </div>
+        </div>
+
+        <!-- TAB 2: Direct URL -->
+        <div id="contentUrl" class="hidden">
+            <div class="bg-netflix-dark p-6 rounded-lg border border-gray-800">
+                <form asp-action="AddSource" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-red-500 mb-4"></div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-300 text-sm font-semibold mb-2">Archive.org URL or Identifier</label>
+                        <input asp-for="InputString" class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red" 
+                               placeholder="https://archive.org/details/ultimate-spider-man-dktale OR just ultimate-spider-man-dktale" required />
+                        <span asp-validation-for="InputString" class="text-red-500 text-xs mt-1"></span>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-gray-300 text-sm font-semibold mb-2">Category</label>
+                        <select asp-for="CategoryName" class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red">
+                            <option value="Uncategorized">Uncategorized</option>
+                            @foreach (var cat in categories)
+                            {
+                                <option value="@cat">@cat</option>
+                            }
+                        </select>
+                    </div>
+
+                    <button type="submit" class="w-full bg-netflix-red hover:bg-red-700 text-white font-semibold py-3 rounded transition">
+                        Add to Library
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        // Let Razor generate the exact URLs for us - this prevents 404s!
+        const liveSearchUrl = '@Url.Action("LiveSearch", "Search")';
+        const addSourceUrl = '@Url.Action("AddSource", "Search")';
+
+        function switchTab(tab) {
+            const tabSearch = document.getElementById('tabSearch');
+            const tabUrl = document.getElementById('tabUrl');
+            const contentSearch = document.getElementById('contentSearch');
+            const contentUrl = document.getElementById('contentUrl');
+
+            if (tab === 'search') {
+                tabSearch.className = 'flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition';
+                tabUrl.className = 'flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition';
+                contentSearch.classList.remove('hidden');
+                contentUrl.classList.add('hidden');
+            } else {
+                tabUrl.className = 'flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition';
+                tabSearch.className = 'flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition';
+                contentUrl.classList.remove('hidden');
+                contentSearch.classList.add('hidden');
+            }
+        }
+
+        async function performSearch() {
+            const query = document.getElementById('searchQuery').value.trim();
+            if (!query) return;
+
+            const resultsContainer = document.getElementById('searchResults');
+            const placeholder = document.getElementById('searchPlaceholder');
+            const loading = document.getElementById('searchLoading');
+
+            if(placeholder) placeholder.remove();
+            resultsContainer.innerHTML = '';
+            loading.classList.remove('hidden');
+
+            try {
+                // Use the Razor-generated URL
+                const response = await fetch(`${liveSearchUrl}?query=${encodeURIComponent(query)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const results = await response.json();
+                loading.classList.add('hidden');
+
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">No results found. Try a different search term.</div>';
+                    return;
+                }
+
+                const category = document.getElementById('searchCategory').value;
+
+                results.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-900 rounded-lg overflow-hidden border border-gray-800 hover:border-netflix-red transition group';
+                    card.innerHTML = `
+                        <div class="aspect-[2/3] bg-black relative">
+                            <img src="${item.thumbnailUrl}" alt="${item.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
+                            <div class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">${item.mediaType}</div>
+                        </div>
+                        <div class="p-3">
+                            <h3 class="text-white font-semibold text-sm line-clamp-2 mb-3" title="${item.title}">${item.title}</h3>
+                            <form action="${addSourceUrl}" method="post" class="flex gap-2">
+                                <input type="hidden" name="InputString" value="${item.identifier}" />
+                                <input type="hidden" name="CategoryName" value="${category}" />
+                                <button type="submit" class="flex-1 bg-netflix-red hover:bg-red-700 text-white text-sm font-semibold py-2 rounded transition">
+                                    Add
+                                </button>
+                            </form>
+                        </div>
+                    `;
+                    resultsContainer.appendChild(card);
+                });
+            } catch (error) {
+                loading.classList.add('hidden');
+                resultsContainer.innerHTML = '<div class="col-span-full text-center py-12 text-red-500">An error occurred while searching. Check console.</div>';
+                console.error('Search error:', error);
+            }
+        }
+    </script>
+}
