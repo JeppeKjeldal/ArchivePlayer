@@ -1,19 +1,17 @@
-﻿/**
- * ArchivePlayer - Enhanced video player with Netflix-style features
- */
-
-class VideoPlayer {
+﻿class VideoPlayer {
     constructor(container) {
         this.container = container;
         this.videoElement = document.getElementById('videoPlayer');
         this.identifier = container.dataset.identifier;
-        this.savedProgress = parseInt(container.dataset.savedProgress) || 0;
-        this.showDescription = container.dataset.showDescription || 'No description available.';
+        this.apiBaseUrl = '/api/v1/playback';
+        
         this.hideOverlayTimeout = null;
         this.lastTapTime = 0;
+        this.playbackData = null;
     }
 
-    initialize() {
+    async initialize() {
+        await this.fetchPlaybackData();
         this.setupVideoSource();
         this.setupVolumeMemory();
         this.setupProgressTracking();
@@ -23,16 +21,32 @@ class VideoPlayer {
         this.setupSkipButtons();
         this.setupKeyboardShortcuts();
         this.setupMobileGestures();
+        
         this.videoElement.play().catch(() => {});
     }
 
+    async fetchPlaybackData() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/${this.identifier}`);
+            if (!response.ok) throw new Error('Failed to fetch playback data');
+            this.playbackData = await response.json();
+            
+            document.getElementById('videoTitle').textContent = this.playbackData.title || 'Unknown Title';
+            document.getElementById('episodeDescription').textContent = this.playbackData.description || 'No description available.';
+        } catch (error) {
+            console.error('Error fetching playback data:', error);
+        }
+    }
+
     setupVideoSource() {
-        const videoFile = this.container.dataset.videoFile;
-        if (!videoFile) return;
+        if (!this.playbackData || !this.playbackData.videoFiles || this.playbackData.videoFiles.length === 0) return;
+        
+        const videoFile = this.playbackData.currentEpisodeFileName || this.playbackData.videoFiles[0];
         this.videoElement.src = `https://archive.org/download/${this.identifier}/${encodeURIComponent(videoFile)}`;
-        if (this.savedProgress > 0) {
+        
+        if (this.playbackData.watchProgressSeconds > 0) {
             this.videoElement.addEventListener('loadedmetadata', () => {
-                this.videoElement.currentTime = this.savedProgress;
+                this.videoElement.currentTime = this.playbackData.watchProgressSeconds;
             }, { once: true });
         }
     }
@@ -52,12 +66,21 @@ class VideoPlayer {
 
     saveProgress() {
         const progressSeconds = Math.floor(this.videoElement.currentTime);
-        const currentEpisode = localStorage.getItem('currentEpisode') || '';
-        fetch('/Watch/SaveProgress', {
+        const currentEpisode = this.getCurrentEpisode();
+        
+        fetch(`${this.apiBaseUrl}/progress`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `identifier=${encodeURIComponent(this.identifier)}&progressSeconds=${progressSeconds}&episodeFileName=${encodeURIComponent(currentEpisode)}`
-        });
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                identifier: this.identifier,
+                progressSeconds: progressSeconds,
+                episodeFileName: currentEpisode
+            })
+        }).catch(err => console.error('Failed to save progress:', err));
+    }
+
+    getCurrentEpisode() {
+        return localStorage.getItem('currentEpisode') || (this.playbackData?.currentEpisodeFileName || '');
     }
 
     setupControlOverlay() {
@@ -158,29 +181,15 @@ class EpisodePlayer extends VideoPlayer {
     constructor(container) {
         super(container);
         this.seasonMap = {};
-        this.savedEpisode = container.dataset.savedEpisode || '';
         this.countdownInterval = null;
-
-        const jsonDataElement = document.getElementById('videoPlayerData');
-        if (jsonDataElement) {
-            try {
-                const jsonData = JSON.parse(jsonDataElement.textContent);
-                this.episodes = jsonData.episodes || [];
-                this.episodeThumbnails = jsonData.episodeThumbnails || [];
-            } catch (error) {
-                console.error('Failed to parse episode data:', error);
-                this.episodes = [];
-                this.episodeThumbnails = [];
-            }
-        } else {
-            this.episodes = [];
-            this.episodeThumbnails = [];
-        }
     }
 
-    initialize() {
+    async initialize() {
+        await this.fetchPlaybackData();
+        
         this.buildSeasonMap();
         this.populateSeasonDropdown();
+        this.setupSeasonSelector();
         this.selectInitialSeason();
         this.renderEpisodeCards();
         
@@ -199,47 +208,27 @@ class EpisodePlayer extends VideoPlayer {
     }
 
     buildSeasonMap() {
-        this.episodes.forEach(file => {
-            const seasonInfo = this.extractSeasonInfo(file);
-            const episodeInfo = this.extractEpisodeInfo(file);
-            const tmdbData = this.findTmdbDataForEpisode(seasonInfo.number, episodeInfo.number);
-
-            if (!this.seasonMap[seasonInfo.label]) {
-                this.seasonMap[seasonInfo.label] = [];
-            }
-
-            this.seasonMap[seasonInfo.label].push({
-                filename: file,
-                thumbnail: tmdbData ? tmdbData.stillUrl : null,
-                name: tmdbData ? tmdbData.name : file,
-                episodeNum: episodeInfo.number,
-                seasonNum: seasonInfo.number,
-                overview: tmdbData ? tmdbData.overview : null
-            });
-        });
-    }
-
-    extractSeasonInfo(filename) {
-        const match = filename.match(/S(\d+)/i) || filename.match(/Season\s*(\d+)/i) || filename.match(/(\d+)x\d+/i);
-        if (match) {
-            return { number: parseInt(match[1]), label: `Season ${String(parseInt(match[1])).padStart(2, '0')}` };
+        if (!this.playbackData || !this.playbackData.episodes) {
+            console.log("No episodes found in API response");
+            return;
         }
-        return { number: null, label: 'Other' };
-    }
 
-    extractEpisodeInfo(filename) {
-        const match = filename.match(/E(\d+)/i) || filename.match(/Ep(?:isode)?\s*(\d+)/i) || filename.match(/\d+x(\d+)/i);
-        return { number: match ? parseInt(match[1]) : null };
-    }
-
-    findTmdbDataForEpisode(seasonNumber, episodeNumber) {
-        if (!seasonNumber || !episodeNumber || !this.episodeThumbnails.length) return null;
-        return this.episodeThumbnails.find(ep => ep.seasonNumber === seasonNumber && ep.episodeNumber === episodeNumber);
+        this.playbackData.episodes.forEach(ep => {
+            const seasonLabel = `Season ${String(ep.seasonNumber).padStart(2, '0')}`;
+            if (!this.seasonMap[seasonLabel]) {
+                this.seasonMap[seasonLabel] = [];
+            }
+            this.seasonMap[seasonLabel].push(ep);
+        });
+        console.log("Season map built:", this.seasonMap);
     }
 
     populateSeasonDropdown() {
         const dropdown = document.getElementById('seasonSelect');
         if (!dropdown) return;
+        
+        document.getElementById('episodesSection').classList.remove('hidden');
+        
         Object.keys(this.seasonMap).sort().forEach(season => {
             const option = document.createElement('option');
             option.value = season;
@@ -256,15 +245,17 @@ class EpisodePlayer extends VideoPlayer {
     }
 
     selectInitialSeason() {
-        if (!this.savedEpisode) return;
-        const season = this.findSeasonForEpisode(this.savedEpisode);
+        const currentEpisode = this.getCurrentEpisode();
+        if (!currentEpisode) return;
+        
+        const season = this.findSeasonForEpisode(currentEpisode);
         const dropdown = document.getElementById('seasonSelect');
         if (dropdown) dropdown.value = season;
     }
 
     findSeasonForEpisode(filename) {
         for (const [season, episodes] of Object.entries(this.seasonMap)) {
-            if (episodes.some(ep => ep.filename === filename)) return season;
+            if (episodes.some(ep => ep.fileName === filename)) return season;
         }
         return 'all';
     }
@@ -276,12 +267,13 @@ class EpisodePlayer extends VideoPlayer {
 
         container.innerHTML = '';
         const selectedSeason = dropdown.value;
+        console.log("Rendering episodes for season:", selectedSeason);
         const episodesToShow = selectedSeason === 'all' ? Object.values(this.seasonMap).flat() : (this.seasonMap[selectedSeason] || []);
-        const currentPlaying = localStorage.getItem('currentEpisode') || this.savedEpisode;
+        const currentPlaying = this.getCurrentEpisode();
 
         episodesToShow.forEach(ep => {
-            const card = this.createEpisodeCard(ep, ep.filename === currentPlaying);
-            card.addEventListener('click', () => this.playEpisode(ep.filename, 0));
+            const card = this.createEpisodeCard(ep, ep.fileName === currentPlaying);
+            card.addEventListener('click', () => this.playEpisode(ep.fileName, 0));
             container.appendChild(card);
         });
 
@@ -294,23 +286,27 @@ class EpisodePlayer extends VideoPlayer {
         const card = document.createElement('div');
         const borderClass = isCurrent ? 'border-netflix-red ring-2 ring-netflix-red' : 'border-gray-700 hover:border-netflix-red';
         card.className = `flex-shrink-0 w-64 bg-gray-800 rounded-lg overflow-hidden hover:scale-105 cursor-pointer transition border ${borderClass}`;
-        card.setAttribute('data-filename', episode.filename);
-        const displayName = episode.episodeNum ? `Episode ${episode.episodeNum}` : episode.name;
+        card.setAttribute('data-filename', episode.fileName);
+        const displayName = episode.episodeNumber ? `Episode ${episode.episodeNumber}` : (episode.name || 'Unknown');
 
         card.innerHTML = `
-            ${episode.thumbnail ? 
-                `<div class="aspect-video bg-black"><img src="${episode.thumbnail}" alt="${episode.name}" class="w-full h-full object-cover" /></div>` : 
+            ${episode.stillUrl ? 
+                `<div class="aspect-video bg-black"><img src="${episode.stillUrl}" alt="${episode.name}" class="w-full h-full object-cover" /></div>` : 
                 `<div class="aspect-video bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h1v-2h-1zm-2-2H7v4h6v-4zm2 0h1V9h-1v2zm1-4V5h-1v2h1zM5 5v2H4V5h1zm-1 4h1v2H4V9zm0 4h1v2H4v-2z" clip-rule="evenodd" /></svg></div>`
             }
             <div class="p-3 bg-gray-900">
                 <p class="text-white font-semibold text-sm truncate">${displayName}</p>
-                <p class="text-gray-400 text-xs mt-1 truncate" title="${episode.filename}">${episode.name}</p>
+                <p class="text-gray-400 text-xs mt-1 truncate" title="${episode.fileName}">${episode.name || episode.fileName}</p>
             </div>
         `;
         return card;
     }
 
     playEpisode(filename, startTime = 0) {
+        if (!filename) {
+            console.error("Attempted to play episode with empty filename!");
+            return;
+        }
         const newSrc = `https://archive.org/download/${this.identifier}/${encodeURIComponent(filename)}`;
         if (this.videoElement.src !== newSrc) {
             this.videoElement.src = newSrc;
@@ -348,20 +344,20 @@ class EpisodePlayer extends VideoPlayer {
     }
 
     updateEpisodeInfo(filename) {
-        const allEpisodes = Object.values(this.seasonMap).flat();
-        const episode = allEpisodes.find(ep => ep.filename === filename);
+        if (!this.playbackData || !this.playbackData.episodes) return;
+        const episode = this.playbackData.episodes.find(ep => ep.fileName === filename);
         if (!episode) return;
 
         const episodeInfoElement = document.getElementById('episodeInfo');
         const descriptionElement = document.getElementById('episodeDescription');
 
-        if (episode.seasonNum && episode.episodeNum) {
+        if (episode.seasonNumber && episode.episodeNumber) {
             const episodeTitle = episode.name ? ` - ${episode.name}` : '';
-            episodeInfoElement.textContent = `Season ${episode.seasonNum}, Episode ${episode.episodeNum}${episodeTitle}`;
+            episodeInfoElement.textContent = `Season ${episode.seasonNumber}, Episode ${episode.episodeNumber}${episodeTitle}`;
         } else {
             episodeInfoElement.textContent = '';
         }
-        descriptionElement.textContent = episode.overview || this.showDescription;
+        descriptionElement.textContent = episode.overview || this.playbackData.description || 'No description available.';
     }
 
     setupAutoplay() {
@@ -369,14 +365,15 @@ class EpisodePlayer extends VideoPlayer {
     }
 
     handleEpisodeEnded() {
-        const currentEpisode = localStorage.getItem('currentEpisode') || '';
+        const currentEpisode = this.getCurrentEpisode();
         const nextEpisode = this.getNextEpisode(currentEpisode);
         if (nextEpisode) this.showCountdown(nextEpisode);
     }
 
     getNextEpisode(currentFilename) {
+        if (!this.playbackData || !this.playbackData.episodes) return null;
         const allEpisodes = Object.values(this.seasonMap).flat();
-        const currentIndex = allEpisodes.findIndex(ep => ep.filename === currentFilename);
+        const currentIndex = allEpisodes.findIndex(ep => ep.fileName === currentFilename);
         if (currentIndex >= 0 && currentIndex < allEpisodes.length - 1) {
             return allEpisodes[currentIndex + 1];
         }
@@ -397,7 +394,7 @@ class EpisodePlayer extends VideoPlayer {
             countdownNumber.textContent = remaining;
             if (remaining <= 0) {
                 this.hideCountdown();
-                this.playEpisode(nextEpisode.filename, 0);
+                this.playEpisode(nextEpisode.fileName, 0);
             }
         }, 1000);
     }
@@ -418,28 +415,37 @@ class EpisodePlayer extends VideoPlayer {
     }
 
     resumeFromSavedProgress() {
-        const allEpisodes = Object.values(this.seasonMap).flat();
-        if (this.savedEpisode && allEpisodes.some(ep => ep.filename === this.savedEpisode)) {
-            this.playEpisode(this.savedEpisode, this.savedProgress);
+        if (!this.playbackData || !this.playbackData.videoFiles || this.playbackData.videoFiles.length === 0) {
+            console.error("No video files available");
             return;
         }
-        if (allEpisodes.length > 0) {
-            this.playEpisode(allEpisodes[0].filename, 0);
+        
+        const savedEpisode = this.playbackData.currentEpisodeFileName || this.getCurrentEpisode();
+        const allEpisodes = this.playbackData.episodes ? Object.values(this.seasonMap).flat() : [];
+        
+        let fileToPlay = null;
+
+        if (savedEpisode && this.playbackData.videoFiles.includes(savedEpisode)) {
+            fileToPlay = savedEpisode;
+        } else {
+            const firstValidEpisode = allEpisodes.find(ep => ep.fileName && this.playbackData.videoFiles.includes(ep.fileName));
+            if (firstValidEpisode) {
+                fileToPlay = firstValidEpisode.fileName;
+            } else {
+                fileToPlay = this.playbackData.videoFiles[0];
+            }
         }
+        
+        console.log("Resuming playback with file:", fileToPlay);
+        this.playEpisode(fileToPlay, this.playbackData.watchProgressSeconds);
     }
 }
 
-// Safe Initialization (Handles both early and late script loading)
 function initPlayer() {
     const container = document.getElementById('videoPlayerContainer');
     if (!container) return;
     
-    const hasEpisodes = container.dataset.hasEpisodes === 'true';
-    if (hasEpisodes) {
-        new EpisodePlayer(container).initialize();
-    } else {
-        new VideoPlayer(container).initialize();
-    }
+    new EpisodePlayer(container).initialize();
 }
 
 if (document.readyState === 'loading') {

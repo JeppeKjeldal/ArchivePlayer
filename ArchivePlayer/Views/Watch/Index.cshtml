@@ -1,13 +1,8 @@
 ﻿@model ArchivePlayer.Models.MediaItem
-@using ArchivePlayer.Models
 
 @{
-    ViewData["Title"] = Model?.Title ?? "Watch";
-    var videoFiles = ViewBag.VideoFiles as List<string> ?? new List<string>();
-    var episodeThumbnails = ViewBag.EpisodeThumbnails as List<TmdbEpisodeInfo>;
-    var hasMultipleFiles = videoFiles.Count > 1;
-    var watchProgressSeconds = ViewBag.WatchProgressSeconds as int? ?? 0;
-    var currentEpisode = ViewBag.CurrentEpisode as string;
+    ViewData["Title"] = ViewBag.Title ?? "Watch";
+    var identifier = ViewBag.Identifier as string;
 }
 
 <div class="min-h-screen bg-netflix-black flex flex-col items-center p-4">
@@ -25,18 +20,12 @@
     <!-- Video Player Container -->
     <div id="videoPlayerContainer" 
          class="w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-800 relative"
-         data-identifier="@(Model?.Identifier)"
-         data-has-episodes="@hasMultipleFiles.ToString().ToLower()"
-         data-saved-progress="@watchProgressSeconds"
-         data-saved-episode="@(currentEpisode ?? "")"
-         data-video-file="@(videoFiles.FirstOrDefault() ?? "")"
-         data-show-description="@(Model?.Description ?? "No description available.")">
+         data-identifier="@identifier">
         
         <video id="videoPlayer" controls autoplay class="w-full h-full"></video>
 
         <!-- Control Overlay -->
         <div id="controlOverlay" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-300">
-            <!-- Top Controls -->
             <div class="absolute top-4 right-4 flex gap-2 pointer-events-auto">
                 <select id="playbackSpeed" class="bg-black/70 text-white border border-gray-600 rounded px-2 py-1 text-sm cursor-pointer hover:bg-black/90">
                     <option value="0.5">0.5x</option>
@@ -46,22 +35,18 @@
                     <option value="1.5">1.5x</option>
                     <option value="2">2x</option>
                 </select>
-
                 <button id="pipButton" class="bg-black/70 hover:bg-black/90 text-white rounded p-2 transition" title="Picture-in-Picture">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M3 4a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm12 4a1 1 0 011 1v6a1 1 0 01-1 1h-5a1 1 0 01-1-1V9a1 1 0 011-1h5z" />
                     </svg>
                 </button>
             </div>
-
-            <!-- Bottom Controls -->
             <div class="absolute bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 pointer-events-auto">
                 <button id="skipBackButton" class="bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition" title="Skip back 10 seconds (←)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M7.707 3.293a1 1 0 010 1.414L5.414 7H11a7 7 0 017 7v2a1 1 0 11-2 0v-2a5 5 0 00-5-5H5.414l2.293 2.293a1 1 0 11-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
                 </button>
-
                 <button id="skipForwardButton" class="bg-black/70 hover:bg-black/90 text-white rounded-full p-3 transition" title="Skip forward 10 seconds (→)">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M12.293 3.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 9H9a5 5 0 00-5 5v2a1 1 0 11-2 0v-2a7 7 0 017-7h5.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -74,9 +59,7 @@
         <div id="nextEpisodeCountdown" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden">
             <div class="text-center">
                 <p class="text-white text-2xl mb-4">Next episode in <span id="countdownNumber" class="text-netflix-red font-bold">10</span></p>
-                <button id="cancelCountdown" class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition">
-                    Cancel
-                </button>
+                <button id="cancelCountdown" class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded transition">Cancel</button>
             </div>
         </div>
 
@@ -99,36 +82,24 @@
 
     <!-- Video Info -->
     <div class="w-full max-w-5xl mt-6">
-        <h1 id="videoTitle" class="text-3xl font-bold text-white mb-2">@(Model?.Title ?? "Unknown Title")</h1>
+        <h1 id="videoTitle" class="text-3xl font-bold text-white mb-2">@(ViewBag.Title ?? "Loading...")</h1>
         <p id="episodeInfo" class="text-gray-400 text-lg mb-2"></p>
-        <p id="episodeDescription" class="text-gray-400">@(Model?.Description ?? "No description available.")</p>
+        <p id="episodeDescription" class="text-gray-400">@(ViewBag.Description ?? "No description available.")</p>
     </div>
 
     <!-- Episode Selector -->
-    @if (hasMultipleFiles)
-    {
-        <div class="w-full max-w-5xl mt-8 bg-netflix-dark rounded-lg border border-gray-800 p-6">
-            <h2 class="text-2xl font-bold text-white mb-4">Episodes</h2>
-            
-            <div class="mb-6">
-                <label class="text-gray-400 text-sm mb-2 block">Select Season</label>
-                <select id="seasonSelect" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-netflix-red">
-                    <option value="all">All Episodes</option>
-                </select>
-            </div>
-
-            <div id="episodesContainer" class="flex overflow-x-auto gap-3 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900"></div>
+    <div id="episodesSection" class="w-full max-w-5xl mt-8 bg-netflix-dark rounded-lg border border-gray-800 p-6 hidden">
+        <h2 class="text-2xl font-bold text-white mb-4">Episodes</h2>
+        <div class="mb-6">
+            <label class="text-gray-400 text-sm mb-2 block">Select Season</label>
+            <select id="seasonSelect" class="w-full bg-gray-800 text-white border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-netflix-red">
+                <option value="all">All Episodes</option>
+            </select>
         </div>
-    }
+        <div id="episodesContainer" class="flex overflow-x-auto gap-3 pb-4 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900"></div>
+    </div>
 </div>
 
-<!-- JSON Data for JavaScript -->
-<script type="application/json" id="videoPlayerData">
-{
-    "episodes": @Html.Raw(Json.Serialize(videoFiles)),
-    "episodeThumbnails": @Html.Raw(Json.Serialize(episodeThumbnails ?? new List<TmdbEpisodeInfo>()))
-}
-</script>
-
 @section Scripts {
-    <script src="~/js/watch-player.js?v=3"></script>}
+    <script src="~/js/watch-player.js?v=4"></script>
+}
