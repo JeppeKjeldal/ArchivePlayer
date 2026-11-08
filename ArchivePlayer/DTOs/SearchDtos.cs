@@ -14,7 +14,7 @@ public class ArchiveSearchResultDto
 /// <summary>
 /// Response wrapper for Archive.org search with pagination
 /// </summary>
-public class ArchiveSearchResponse
+public class ArchiveSearchApiResponse
 {
     public List<ArchiveSearchResultDto> Results { get; set; } = new();
     public bool HasMoreResults { get; set; }
