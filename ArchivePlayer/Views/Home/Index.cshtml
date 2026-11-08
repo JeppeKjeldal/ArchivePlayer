@@ -1,140 +1,46 @@
-﻿@model IEnumerable<System.Linq.IGrouping<string, ArchivePlayer.Models.UserMediaItem>>
-@using ArchivePlayer.Models
-
-@{
-    ViewData["Title"] = "Home";
-    var recentlyWatched = ViewBag.RecentlyWatched as List<UserMediaItem> ?? new List<UserMediaItem>();
+﻿@{
+    ViewData["Title"] = "My Library";
+    var userName = ViewBag.UserName as string ?? "User";
 }
 
-<!-- Hero Section -->
-<div class="relative h-[60vh] w-full bg-gradient-to-b from-netflix-dark to-netflix-black">
-    <div class="absolute inset-0 flex items-center justify-center">
-        <div class="text-center px-8">
-            <h1 class="text-5xl font-bold mb-4">Welcome to ArchivePlayer</h1>
-            <p class="text-lg text-gray-300 mb-8 max-w-2xl mx-auto">
-                Stream classic cartoons, anime, and public domain movies directly from Archive.org.
-            </p>
-            <div class="flex gap-4 justify-center">
-                <a href="/Search" class="bg-white text-black px-8 py-3 rounded font-semibold hover:bg-gray-200 transition">
-                    Add Source
-                </a>
+<div class="min-h-screen bg-netflix-black p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold text-white mb-2">Welcome back, @userName</h1>
+            <p class="text-gray-400">Continue watching or browse your library</p>
+        </div>
+
+        <!-- Continue Watching Section -->
+        <section id="continueWatchingSection" class="mb-12 hidden">
+            <h2 class="text-2xl font-bold text-white mb-4">Continue Watching</h2>
+            <div id="continueWatchingGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <!-- Cards injected by JS -->
             </div>
+        </section>
+
+        <!-- Library by Category -->
+        <section id="librarySection">
+            <h2 class="text-2xl font-bold text-white mb-4">Your Library</h2>
+            <div id="libraryContainer">
+                <!-- Category sections injected by JS -->
+            </div>
+        </section>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden text-center py-16">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+            </svg>
+            <h3 class="text-xl font-semibold text-white mb-2">Your library is empty</h3>
+            <p class="text-gray-400 mb-6">Start by adding some content from Archive.org</p>
+            <a href="/Search" class="inline-block bg-netflix-red hover:bg-red-700 text-white font-semibold px-6 py-3 rounded transition">
+                Add Content
+            </a>
         </div>
     </div>
 </div>
 
-<!-- My Library Section -->
-<div class="px-8 py-12">
-
-    @if (Model != null && Model.Any())
-    {
-        <!-- Recently Watched Section -->
-        @if (recentlyWatched.Any())
-        {
-            <div class="mb-10">
-                <h2 class="text-2xl font-semibold text-white mb-4 border-l-4 border-netflix-red pl-3">
-                    Recently Watched
-                </h2>
-
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    @foreach (var item in recentlyWatched)
-                    {
-                        <div class="relative group">
-                            <a href="/Watch/@item.MediaItem.Identifier" class="block">
-                                <!-- Portrait Poster Card (2:3 ratio) -->
-                                <div class="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg border border-gray-800 hover:scale-105 hover:border-netflix-red transition-all duration-300">
-
-                                    <!-- Full Poster Image -->
-                                    <img src="@item.MediaItem.ThumbnailUrl"
-                                         alt="@item.MediaItem.Title"
-                                         onerror="this.style.display='none'"
-                                         class="w-full h-full object-cover" />
-
-                                    <!-- Gradient Overlay for Title Readability -->
-                                    <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                                    <!-- Title (Hidden until hover) -->
-                                    <div class="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                        <h3 class="text-white font-semibold text-sm line-clamp-3" title="@item.MediaItem.Title">
-                                            @item.MediaItem.Title
-                                        </h3>
-                                    </div>
-                                </div>
-                            </a>
-
-                            <!-- Remove from Recently Watched Button (Top-right corner) -->
-                            <form asp-action="ClearRecentlyWatched" method="post" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10" onclick="return confirm('Remove from recently watched? (Item will remain in your library)');">
-                                <input type="hidden" name="id" value="@item.Id" />
-                                <button type="submit" class="bg-gray-700 hover:bg-gray-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition" title="Remove from recently watched">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-                            </form>
-                        </div>
-                    }
-                </div>
-            </div>
-        }
-
-        <!-- Category Sections -->
-        @foreach (var group in Model.OrderBy(g => g.Key))
-        {
-            <div class="mb-10">
-                <!-- Category Header -->
-                <h2 class="text-2xl font-semibold text-white mb-4 border-l-4 border-netflix-red pl-3">
-                    @group.Key
-                </h2>
-
-                <!-- Grid of saved items for this category -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    @foreach (var item in group)
-                    {
-                        <a href="/Watch/@item.MediaItem.Identifier" class="block group relative">
-                            <!-- Portrait Poster Card (2:3 ratio) -->
-                            <div class="relative aspect-[2/3] rounded-lg overflow-hidden shadow-lg border border-gray-800 hover:scale-105 hover:border-netflix-red transition-all duration-300">
-
-                                <!-- Full Poster Image -->
-                                <img src="@item.MediaItem.ThumbnailUrl"
-                                     alt="@item.MediaItem.Title"
-                                     onerror="this.style.display='none'"
-                                     class="w-full h-full object-cover" />
-
-                                <!-- Gradient Overlay for Title Readability -->
-                                <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                                <!-- Title (Hidden until hover) -->
-                                <div class="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    <h3 class="text-white font-semibold text-sm line-clamp-3" title="@item.MediaItem.Title">
-                                        @item.MediaItem.Title
-                                    </h3>
-                                </div>
-                            </div>
-
-                            <!-- Delete Button (Top-right corner) -->
-                            <form asp-action="Delete" method="post" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10" onclick="event.stopPropagation(); return confirm('Remove this from your library?');">
-                                <input type="hidden" name="id" value="@item.Id" />
-                                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg transition" title="Remove from library">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                    </svg>
-                                </button>
-                            </form>
-                        </a>
-                    }
-                </div>
-            </div>
-        }
-    }
-    else
-    {
-        <!-- Empty state message -->
-        <div class="bg-netflix-dark rounded-lg p-12 text-center border border-gray-800 mt-8">
-            <p class="text-gray-400 text-lg">Your library is empty.</p>
-            <p class="text-gray-500 mt-2">Add some content to get started!</p>
-            <a href="/Search" class="inline-block mt-6 bg-netflix-red text-white px-6 py-2 rounded hover:bg-red-700 transition">
-                Browse Archive.org
-            </a>
-        </div>
-    }
-</div>
+@section Scripts {
+    <script src="~/js/home-page.js?v=2"></script>
+}
