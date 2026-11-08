@@ -11,6 +11,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<ArchivePlayer.Services.TMDBService>();
 builder.Services.AddScoped<ArchiveSearchService>();
+builder.Services.AddSingleton<SettingsService>();
 builder.Services.AddDbContext<ApplicationDbContext>(options => 
 options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 

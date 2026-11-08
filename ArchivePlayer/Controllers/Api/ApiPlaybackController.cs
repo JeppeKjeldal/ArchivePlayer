@@ -49,19 +49,18 @@ public class ApiPlaybackController : ControllerBase
 
         if (mediaItem == null) return NotFound("Media item not found");
 
-        // Get user's saved progress for this item
         var userMediaItem = await _context.UserMediaItems
             .FirstOrDefaultAsync(umi => umi.UserId == user.Id && umi.MediaItemId == mediaItem.Id);
 
-        // Fetch available video files from Archive.org
         var videoFiles = await GetVideoFilesAsync(identifier);
 
-        // Fetch episode metadata if it's a TV show
         List<EpisodeInfoDto>? episodes = null;
+
+        // Try TMDB first
         if (mediaItem.TMDBId.HasValue && mediaItem.TMDBMediaType == "tv")
         {
             var tmdbEpisodes = await _tmdbService.FetchEpisodesAsync(mediaItem.TMDBId.Value);
-            if (tmdbEpisodes != null)
+            if (tmdbEpisodes != null && tmdbEpisodes.Count > 0)
             {
                 episodes = tmdbEpisodes.Select(ep => new EpisodeInfoDto
                 {
@@ -71,8 +70,14 @@ public class ApiPlaybackController : ControllerBase
                     Overview = ep.Overview,
                     StillUrl = ep.StillUrl,
                     FileName = MatchEpisodeToFile(ep, videoFiles)
-                }).ToList();
+                }).Where(ep => !string.IsNullOrEmpty(ep.FileName)).ToList();
             }
+        }
+
+        // Fallback: parse from video filenames
+        if (episodes == null || episodes.Count == 0)
+        {
+            episodes = ParseEpisodesFromFiles(videoFiles);
         }
 
         var response = new MediaDetailsDto
@@ -185,5 +190,52 @@ public class ApiPlaybackController : ControllerBase
             f.Contains(pattern2, StringComparison.OrdinalIgnoreCase));
 
         return match ?? string.Empty;
+    }
+
+    private List<EpisodeInfoDto> ParseEpisodesFromFiles(List<string> videoFiles)
+    {
+        var episodes = new List<EpisodeInfoDto>();
+        var episodePattern = new System.Text.RegularExpressions.Regex(
+            @"(?:S(\d+)[\s._-]*E(\d+)|(\d+)x(\d+)|[Ee]pisode[\s._-]*(\d+)|^(\d+)[\s._-])",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+
+        foreach (var file in videoFiles.OrderBy(f => f))
+        {
+            var match = episodePattern.Match(file);
+            var episode = new EpisodeInfoDto
+            {
+                FileName = file,
+                Name = Path.GetFileNameWithoutExtension(file)
+            };
+
+            if (match.Success)
+            {
+                if (match.Groups[1].Success && match.Groups[2].Success)
+                {
+                    episode.SeasonNumber = int.Parse(match.Groups[1].Value);
+                    episode.EpisodeNumber = int.Parse(match.Groups[2].Value);
+                }
+                else if (match.Groups[3].Success && match.Groups[4].Success)
+                {
+                    episode.SeasonNumber = int.Parse(match.Groups[3].Value);
+                    episode.EpisodeNumber = int.Parse(match.Groups[4].Value);
+                }
+                else if (match.Groups[5].Success)
+                {
+                    episode.SeasonNumber = 1;
+                    episode.EpisodeNumber = int.Parse(match.Groups[5].Value);
+                }
+                else if (match.Groups[6].Success)
+                {
+                    episode.SeasonNumber = 1;
+                    episode.EpisodeNumber = int.Parse(match.Groups[6].Value);
+                }
+            }
+
+            episodes.Add(episode);
+        }
+
+        return episodes;
     }
 }

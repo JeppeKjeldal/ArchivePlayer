@@ -82,4 +82,12 @@ namespace ArchivePlayer.Models
         [JsonPropertyName("name")]
         public string? Name { get; set; }
     }
+
+    public class TmdbMatchResult
+    {
+        public int TmdbId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? PosterUrl { get; set; }
+        public string MediaType { get; set; } = string.Empty;
+    }
 }
