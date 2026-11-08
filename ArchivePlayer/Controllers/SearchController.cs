@@ -17,20 +17,17 @@ namespace ArchivePlayer.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly HttpClient _httpClient;
         private readonly TMDBService _tmdbService;
-        private readonly ArchiveSearchService _archiveSearchService;
 
         public SearchController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             HttpClient httpClient,
-            TMDBService tmdbService,
-            ArchiveSearchService archiveSearchService)
+            TMDBService tmdbService)
         {
             _context = context;
             _userManager = userManager;
             _httpClient = httpClient;
             _tmdbService = tmdbService;
-            _archiveSearchService = archiveSearchService;
         }
 
         [HttpGet]
@@ -87,42 +84,6 @@ namespace ArchivePlayer.Controllers
             await CreateNewUserMediaItem(mediaItem, currentUser.Id, searchInputModel.CategoryName);
 
             return RedirectToAction("Index", "Home");
-        }
-
-        [HttpGet("LiveSearch")]
-        public async Task<IActionResult> LiveSearch(string query, int page = 1)
-        {
-            var response = await _archiveSearchService.SearchAsync(query, page);
-            return Json(response);
-        }
-
-        [HttpGet("GetCategorySuggestions")]
-        public async Task<IActionResult> GetCategorySuggestions(string identifier)
-        {
-            try
-            {
-                var metadataUrl = $"https://archive.org/metadata/{identifier}";
-                var response = await _httpClient.GetAsync(metadataUrl);
-
-                if (!response.IsSuccessStatusCode) return Json(new List<string>());
-
-                var json = await response.Content.ReadAsStringAsync();
-                var doc = JsonDocument.Parse(json);
-                var archiveTitle = doc.RootElement.GetProperty("metadata").GetProperty("title").GetString() ?? identifier;
-
-                var tmdbMatch = await _tmdbService.FindMatchAsync(archiveTitle);
-
-                if (tmdbMatch != null && tmdbMatch.TmdbId > 0 && !string.IsNullOrEmpty(tmdbMatch.MediaType))
-                {
-                    var genres = await _tmdbService.FetchGenresAsync(tmdbMatch.TmdbId, tmdbMatch.MediaType);
-                    return Json(genres);
-                }
-            }
-            catch
-            {
-            }
-
-            return Json(new List<string>());
         }
 
         private async Task CreateNewMediaItem(string identifier)

@@ -22,7 +22,7 @@
             if (e.key === 'Enter') this.performSearch(true);
         });
 
-        document.querySelector('button[onclick="performSearch()"]')?.addEventListener('click', () => this.performSearch(true));
+        document.getElementById('searchButton')?.addEventListener('click', () => this.performSearch(true));
 
         document.getElementById('loadMoreBtn')?.addEventListener('click', () => this.loadMore());
 
@@ -30,6 +30,8 @@
         modal?.addEventListener('click', (e) => {
             if (e.target === modal) this.closeCategoryModal();
         });
+
+        document.getElementById('closeModalBtn')?.addEventListener('click', () => this.closeCategoryModal());
     }
 
     switchTab(tab) {
@@ -170,13 +172,13 @@
         form.action = this.config.addSourceUrl;
 
         fetch(`${this.config.getCategorySuggestionsUrl}?identifier=${encodeURIComponent(identifier)}`)
-            .then(res => res.json())
-            .then(genres => {
+            .then(suggestions => {
                 loading.classList.add('hidden');
                 content.classList.remove('hidden');
 
-                if (genres && genres.length > 0) {
-                    const uniqueGenres = [...new Set(genres)].slice(0, 5);
+                if (suggestions && suggestions.length > 0) {
+                    const uniqueGenres = [...new Set(suggestions.map(s => s.name))].slice(0, 5);
+                    
                     uniqueGenres.forEach(genre => {
                         const chip = document.createElement('button');
                         chip.type = 'button';

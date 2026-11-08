@@ -25,7 +25,7 @@
                 <div class="flex gap-4">
                     <input type="text" id="searchQuery" placeholder="e.g., Ultimate Spider-Man, Chowder, public domain movies..." 
                            class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red">
-                    <button class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
+                    <button id="searchButton" class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
                         Search
                     </button>
                 </div>
@@ -120,12 +120,12 @@
 
 <script type="application/json" id="searchConfig">
 {
-    "liveSearchUrl": "@Url.Action("LiveSearch", "Search")",
+    "liveSearchUrl": "/api/v1/search/archive",
     "addSourceUrl": "@Url.Action("AddSource", "Search")",
-    "getCategorySuggestionsUrl": "@Url.Action("GetCategorySuggestions", "Search")"
+    "getCategorySuggestionsUrl": "/api/v1/search/category-suggestions"
 }
 </script>
 
 @section Scripts {
-    <script src="~/js/search-page.js?v=1"></script>
+    <script src="~/js/search-page.js?v=2"></script>
 }
