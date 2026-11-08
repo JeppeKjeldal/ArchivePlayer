@@ -67,4 +67,19 @@ namespace ArchivePlayer.Models
         public string? StillUrl { get; set; }
         public string? Overview { get; set; }
     }
+
+    public class TmdbDetailsResponse
+    {
+        [JsonPropertyName("genres")]
+        public List<TmdbGenre>? Genres { get; set; }
+    }
+
+    public class TmdbGenre
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+    }
 }

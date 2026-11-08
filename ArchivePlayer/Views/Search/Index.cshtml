@@ -11,10 +11,10 @@
 
         <!-- Tabs -->
         <div class="flex border-b border-gray-700 mb-6">
-            <button id="tabSearch" class="flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition" onclick="switchTab('search')">
+            <button id="tabSearch" class="flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition">
                 🔍 Search Archive.org
             </button>
-            <button id="tabUrl" class="flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition" onclick="switchTab('url')">
+            <button id="tabUrl" class="flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition">
                 🔗 Paste Direct Link
             </button>
         </div>
@@ -24,23 +24,10 @@
             <div class="bg-netflix-dark p-6 rounded-lg border border-gray-800 mb-6">
                 <div class="flex gap-4">
                     <input type="text" id="searchQuery" placeholder="e.g., Ultimate Spider-Man, Chowder, public domain movies..." 
-                           class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red"
-                           onkeydown="if(event.key === 'Enter') performSearch()">
-                    <button onclick="performSearch()" class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
+                           class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red">
+                    <button class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
                         Search
                     </button>
-                </div>
-                
-                <!-- Default Category for Search Adds -->
-                <div class="mt-4 flex items-center gap-3">
-                    <label class="text-gray-400 text-sm">Add to category:</label>
-                    <select id="searchCategory" class="bg-gray-900 text-white border border-gray-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-netflix-red">
-                        <option value="Uncategorized">Uncategorized</option>
-                        @foreach (var cat in categories)
-                        {
-                            <option value="@cat">@cat</option>
-                        }
-                    </select>
                 </div>
             </div>
 
@@ -57,7 +44,7 @@
             </div>
 
             <div id="loadMoreContainer" class="hidden text-center mt-8">
-                <button onclick="loadMore()" id="loadMoreBtn" class="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg border border-gray-700 transition">
+                <button id="loadMoreBtn" class="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg border border-gray-700 transition">
                     Load More Results
                 </button>
             </div>
@@ -96,121 +83,49 @@
     </div>
 </div>
 
-@section Scripts {
-    <script>
-        const liveSearchUrl = '@Url.Action("LiveSearch", "Search")';
-        const addSourceUrl = '@Url.Action("AddSource", "Search")';
+<!-- Category Selection Modal -->
+<div id="categoryModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+    <div class="bg-netflix-dark border border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 shadow-2xl">
+        <h3 class="text-xl font-bold text-white mb-2">Choose a Category</h3>
+        <p id="modalItemTitle" class="text-gray-400 text-sm mb-4 line-clamp-2"></p>
         
-        let currentPage = 1;
-        let currentQuery = '';
-        let isSearching = false;
+        <div id="modalLoading" class="text-center py-4">
+            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-netflix-red"></div>
+            <p class="text-gray-500 text-sm mt-2">Fetching suggestions...</p>
+        </div>
 
-        function switchTab(tab) {
-            const tabSearch = document.getElementById('tabSearch');
-            const tabUrl = document.getElementById('tabUrl');
-            const contentSearch = document.getElementById('contentSearch');
-            const contentUrl = document.getElementById('contentUrl');
+        <div id="modalContent" class="hidden">
+            <label class="block text-gray-300 text-sm font-semibold mb-2">Suggested Categories</label>
+            <div id="suggestionChips" class="flex flex-wrap gap-2 mb-4"></div>
 
-            if (tab === 'search') {
-                tabSearch.className = 'flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition';
-                tabUrl.className = 'flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition';
-                contentSearch.classList.remove('hidden');
-                contentUrl.classList.add('hidden');
-            } else {
-                tabUrl.className = 'flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition';
-                tabSearch.className = 'flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition';
-                contentUrl.classList.remove('hidden');
-                contentSearch.classList.add('hidden');
-            }
-        }
-
-        async function performSearch(reset = true) {
-            if (isSearching) return;
-            
-            const queryInput = document.getElementById('searchQuery');
-            if (reset) {
-                currentQuery = queryInput.value.trim();
-                currentPage = 1;
-                if (!currentQuery) return;
+            <label class="block text-gray-300 text-sm font-semibold mb-2">Or type a custom category</label>
+            <form id="categoryForm" action="" method="post">
+                <input type="hidden" name="InputString" id="modalIdentifier" />
+                <input type="text" name="CategoryName" id="modalCategoryInput" 
+                       class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-2 mb-4 focus:outline-none focus:border-netflix-red" 
+                       placeholder="e.g., My Favorites, Watch Later, Uncategorized" />
                 
-                const resultsContainer = document.getElementById('searchResults');
-                const placeholder = document.getElementById('searchPlaceholder');
-                if (placeholder) placeholder.remove();
-                resultsContainer.innerHTML = '';
-                document.getElementById('loadMoreContainer').classList.add('hidden');
-            } else {
-                currentQuery = queryInput.value.trim();
-                if (!currentQuery) return;
-            }
+                <div class="flex gap-3">
+                    <button type="button" id="closeModalBtn" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded transition">
+                        Cancel
+                    </button>
+                    <button type="submit" class="flex-1 bg-netflix-red hover:bg-red-700 text-white font-semibold py-2 rounded transition">
+                        Add to Library
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-            isSearching = true;
-            const loading = document.getElementById('searchLoading');
-            const loadMoreBtn = document.getElementById('loadMoreBtn');
-            
-            loading.classList.remove('hidden');
-            if (loadMoreBtn) loadMoreBtn.disabled = true;
+<script type="application/json" id="searchConfig">
+{
+    "liveSearchUrl": "@Url.Action("LiveSearch", "Search")",
+    "addSourceUrl": "@Url.Action("AddSource", "Search")",
+    "getCategorySuggestionsUrl": "@Url.Action("GetCategorySuggestions", "Search")"
+}
+</script>
 
-            try {
-                const response = await fetch(`${liveSearchUrl}?query=${encodeURIComponent(currentQuery)}&page=${currentPage}`);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-                const data = await response.json();
-                loading.classList.add('hidden');
-                isSearching = false;
-                if (loadMoreBtn) loadMoreBtn.disabled = false;
-
-                if (data.results && data.results.length === 0 && currentPage === 1) {
-                    document.getElementById('searchResults').innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">No video results found. Try a different search term.</div>';
-                    return;
-                }
-
-                const category = document.getElementById('searchCategory').value;
-                const resultsContainer = document.getElementById('searchResults');
-
-                data.results.forEach(item => {
-                    const card = document.createElement('div');
-                    card.className = 'bg-gray-900 rounded-lg overflow-hidden border border-gray-800 hover:border-netflix-red transition group';
-                    card.innerHTML = `
-                        <div class="aspect-[2/3] bg-black relative">
-                            <img src="${item.thumbnailUrl}" alt="${item.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
-                            <div class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded uppercase">${item.mediaType}</div>
-                        </div>
-                        <div class="p-3">
-                            <h3 class="text-white font-semibold text-sm line-clamp-2 mb-3" title="${item.title}">${item.title}</h3>
-                            <form action="${addSourceUrl}" method="post" class="flex gap-2">
-                                <input type="hidden" name="InputString" value="${item.identifier}" />
-                                <input type="hidden" name="CategoryName" value="${category}" />
-                                <button type="submit" class="flex-1 bg-netflix-red hover:bg-red-700 text-white text-sm font-semibold py-2 rounded transition">
-                                    Add
-                                </button>
-                            </form>
-                        </div>
-                    `;
-                    resultsContainer.appendChild(card);
-                });
-
-                const loadMoreContainer = document.getElementById('loadMoreContainer');
-                if (data.hasMoreResults) {
-                    loadMoreContainer.classList.remove('hidden');
-                } else {
-                    loadMoreContainer.classList.add('hidden');
-                }
-
-            } catch (error) {
-                loading.classList.add('hidden');
-                isSearching = false;
-                if (loadMoreBtn) loadMoreBtn.disabled = false;
-                
-                if (currentPage === 1) {
-                    document.getElementById('searchResults').innerHTML = '<div class="col-span-full text-center py-12 text-red-500">An error occurred while searching.</div>';
-                }
-                console.error('Search error:', error);
-            }
-        }
-
-        function loadMore() {
-            currentPage++;
-            performSearch(false);
-        }
-    </script>
+@section Scripts {
+    <script src="~/js/search-page.js?v=1"></script>
 }

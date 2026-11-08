@@ -80,6 +80,21 @@ namespace ArchivePlayer.Services
             return episodes;
         }
 
+        public async Task<List<string>> FetchGenresAsync(int tmdbId, string mediaType)
+        {
+            var url = $"{ApiBaseUrl}/{mediaType}/{tmdbId}?api_key={_apiKey}";
+            var rawJson = await FetchRawJsonAsync(url);
+
+            if (string.IsNullOrEmpty(rawJson)) return new List<string>();
+
+            var details = Deserialize<TmdbDetailsResponse>(rawJson);
+
+            return details?.Genres?
+                .Where(g => !string.IsNullOrWhiteSpace(g.Name))
+                .Select(g => g.Name!)
+                .ToList() ?? new List<string>();
+        }
+
         private string BuildSearchUrl(string query)
         {
             var encodedQuery = Uri.EscapeDataString(query);
