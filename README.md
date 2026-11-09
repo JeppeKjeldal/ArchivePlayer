@@ -18,7 +18,7 @@ All data is stored locally on your machine. No accounts, no telemetry, no cloud 
 - **Local SQLite database** — your library lives entirely on your machine
 - **User authentication** for multi-user setups on a single machine
 
-- ## Attribution
+## Attribution
 
 If you fork, modify, or redistribute this project, please provide attribution by:
 - Crediting the original author
