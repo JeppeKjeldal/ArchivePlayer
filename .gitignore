@@ -480,3 +480,36 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# Build output
+publish-release/
+publish/
+*.exe
+*.dll
+*.pdb
+
+# Build folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userprefs
+
+# Database files (generated at runtime)
+*.db
+*.db-shm
+*.db-wal
+
+# Settings file (user-generated)
+settings.json
+
+# Visual Studio
+.vs/
+
+# Rider
+.idea/
+
+# ZIP files
+*.zip
