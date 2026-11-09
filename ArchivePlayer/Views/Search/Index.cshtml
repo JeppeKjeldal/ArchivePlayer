@@ -1,131 +1,156 @@
 ﻿@model ArchivePlayer.Models.SearchInputModel
 
 @{
-    ViewData["Title"] = "Add Source";
-    var categories = ViewBag.ExistingCategories as List<string> ?? new List<string>();
+    ViewData["Title"] = "Add Content";
+    var existingCategories = ViewBag.ExistingCategories as List<string> ?? new List<string>();
 }
 
-<div class="min-h-screen bg-netflix-black flex flex-col items-center p-8">
-    <div class="w-full max-w-4xl">
-        <h1 class="text-3xl font-bold text-white mb-8 text-center">Add to Your Library</h1>
+<div class="min-h-screen bg-netflix-black p-8">
+    <div class="max-w-3xl mx-auto">
+        <h1 class="text-3xl font-bold text-white mb-8 text-center">Add Content to Your Library</h1>
 
-        <!-- Tabs -->
+        <!-- Tab Navigation -->
         <div class="flex border-b border-gray-700 mb-6">
-            <button id="tabSearch" class="flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition">
-                🔍 Search Archive.org
+            <button id="tabBtnLive" class="flex-1 py-3 text-center font-semibold text-netflix-red border-b-2 border-netflix-red transition" onclick="switchTab('live')">
+                🔍 Live Search Archive.org
             </button>
-            <button id="tabUrl" class="flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition">
-                🔗 Paste Direct Link
+            <button id="tabBtnDirect" class="flex-1 py-3 text-center font-semibold text-gray-400 hover:text-white transition" onclick="switchTab('direct')">
+                🔗 Add by Direct URL
             </button>
         </div>
 
         <!-- TAB 1: Live Search -->
-        <div id="contentSearch" class="block">
-            <div class="bg-netflix-dark p-6 rounded-lg border border-gray-800 mb-6">
-                <div class="flex gap-4">
-                    <input type="text" id="searchQuery" placeholder="e.g., Ultimate Spider-Man, Chowder, public domain movies..." 
-                           class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red">
-                    <button id="searchButton" class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
-                        Search
-                    </button>
-                </div>
-            </div>
-
-            <!-- Search Results Grid -->
-            <div id="searchResults" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                <div id="searchPlaceholder" class="col-span-full text-center py-12 text-gray-500">
-                    <p>Type a query above to find content on Archive.org</p>
-                </div>
-            </div>
-            
-            <div id="searchLoading" class="hidden text-center py-12">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-netflix-red"></div>
-                <p class="text-gray-400 mt-2">Searching Archive.org...</p>
-            </div>
-
-            <div id="loadMoreContainer" class="hidden text-center mt-8">
-                <button id="loadMoreBtn" class="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg border border-gray-700 transition">
-                    Load More Results
-                </button>
-            </div>
-        </div>
-
-        <!-- TAB 2: Direct URL -->
-        <div id="contentUrl" class="hidden">
-            <div class="bg-netflix-dark p-6 rounded-lg border border-gray-800">
-                <form asp-action="AddSource" method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-red-500 mb-4"></div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-gray-300 text-sm font-semibold mb-2">Archive.org URL or Identifier</label>
-                        <input asp-for="InputString" class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red" 
-                               placeholder="https://archive.org/details/ultimate-spider-man-dktale OR just ultimate-spider-man-dktale" required />
-                        <span asp-validation-for="InputString" class="text-red-500 text-xs mt-1"></span>
+        <div id="tab-live" class="block">
+            <form id="liveSearchForm" class="space-y-6">
+                <div>
+                    <label class="block text-gray-300 text-sm font-semibold mb-2">Search Archive.org</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="searchInput" 
+                               class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" 
+                               placeholder="e.g., spider-man, cartoon, movie" />
+                        <button type="button" id="searchButton" class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
+                            Search
+                        </button>
                     </div>
+                </div>
 
-                    <div class="mb-6">
-                        <label class="block text-gray-300 text-sm font-semibold mb-2">Category</label>
-                        <select asp-for="CategoryName" class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red">
-                            <option value="Uncategorized">Uncategorized</option>
-                            @foreach (var cat in categories)
-                            {
-                                <option value="@cat">@cat</option>
-                            }
-                        </select>
-                    </div>
-
-                    <button type="submit" class="w-full bg-netflix-red hover:bg-red-700 text-white font-semibold py-3 rounded transition">
-                        Add to Library
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Category Selection Modal -->
-<div id="categoryModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
-    <div class="bg-netflix-dark border border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 shadow-2xl">
-        <h3 class="text-xl font-bold text-white mb-2">Choose a Category</h3>
-        <p id="modalItemTitle" class="text-gray-400 text-sm mb-4 line-clamp-2"></p>
-        
-        <div id="modalLoading" class="text-center py-4">
-            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-netflix-red"></div>
-            <p class="text-gray-500 text-sm mt-2">Fetching suggestions...</p>
-        </div>
-
-        <div id="modalContent" class="hidden">
-            <label class="block text-gray-300 text-sm font-semibold mb-2">Suggested Categories</label>
-            <div id="suggestionChips" class="flex flex-wrap gap-2 mb-4"></div>
-
-            <label class="block text-gray-300 text-sm font-semibold mb-2">Or type a custom category</label>
-            <form id="categoryForm" action="" method="post">
-                <input type="hidden" name="InputString" id="modalIdentifier" />
-                <input type="text" name="CategoryName" id="modalCategoryInput" 
-                       class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-2 mb-4 focus:outline-none focus:border-netflix-red" 
-                       placeholder="e.g., My Favorites, Watch Later, Uncategorized" />
-                
-                <div class="flex gap-3">
-                    <button type="button" id="closeModalBtn" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 rounded transition">
-                        Cancel
-                    </button>
-                    <button type="submit" class="flex-1 bg-netflix-red hover:bg-red-700 text-white font-semibold py-2 rounded transition">
-                        Add to Library
-                    </button>
+                <!-- Search Results Container -->
+                <div id="searchResults" class="hidden space-y-4">
+                    <h3 class="text-xl font-semibold text-white">Results</h3>
+                    <div id="resultsContainer" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
                 </div>
             </form>
         </div>
+
+        <!-- TAB 2: Add by Direct URL -->
+        <div id="tab-direct" class="hidden">
+            <form asp-action="AddSource" method="post" class="space-y-6">
+                <div>
+                    <label class="block text-gray-300 text-sm font-semibold mb-2">Archive.org URL or Identifier</label>
+                    <input type="text" asp-for="InputString" 
+                           class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" 
+                           placeholder="https://archive.org/details/your-identifier-here" required />
+                    <p class="text-gray-500 text-xs mt-2">Paste the full URL or just the identifier (e.g., "cartoon-name-1999").</p>
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 text-sm font-semibold mb-2">Category (Optional)</label>
+                    <input type="text" asp-for="CategoryName" list="categorySuggestions" 
+                           class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" 
+                           placeholder="e.g., Movies, TV Shows, Anime" />
+                    
+                    <datalist id="categorySuggestions">
+                        @foreach (var category in existingCategories)
+                        {
+                            <option value="@category"></option>
+                        }
+                    </datalist>
+                    <p class="text-gray-500 text-xs mt-2">Leave blank to default to "Uncategorized".</p>
+                </div>
+
+                <button type="submit" class="w-full bg-netflix-red hover:bg-red-700 text-white font-semibold py-3 rounded transition flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                </svg>
+                    Add to Library
+                </button>
+            </form>
+        </div>
+
+        <!-- Back Link -->
+        <div class="mt-8 text-center">
+            <a href="/" class="text-gray-400 hover:text-white flex items-center justify-center gap-2 transition">
+                ← Back to Library
+            </a>
+        </div>
     </div>
 </div>
 
-<script type="application/json" id="searchConfig">
-{
-    "liveSearchUrl": "/api/v1/search/archive",
-    "addSourceUrl": "@Url.Action("AddSource", "Search")",
-    "getCategorySuggestionsUrl": "/api/v1/search/category-suggestions"
-}
-</script>
+<!-- Category Suggestion Modal -->
+<div id="categoryModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50">
+    <div class="bg-netflix-dark border border-gray-700 rounded-lg p-6 w-full max-w-md">
+        <h3 class="text-xl font-bold text-white mb-4">Choose a Category</h3>
+        <p class="text-gray-400 text-sm mb-4">Based on TMDB, here are some suggested categories for this content:</p>
+        
+        <div id="suggestionLoading" class="text-center py-4">
+            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-netflix-red"></div>
+        </div>
+        
+        <div id="suggestionContent" class="hidden">
+            <div id="suggestionChips" class="flex flex-wrap gap-2 mb-6"></div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-300 text-sm font-semibold mb-2">Or type your own:</label>
+                <input type="text" id="customCategoryInput" 
+                       class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-netflix-red" 
+                       placeholder="Custom category name" />
+            </div>
+        </div>
+
+        <div class="flex gap-3 justify-end">
+            <button id="closeModalBtn" class="px-4 py-2 text-gray-400 hover:text-white transition">Cancel</button>
+            <button id="confirmCategoryBtn" class="px-4 py-2 bg-netflix-red hover:bg-red-700 text-white rounded font-semibold transition">Add to Library</button
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form for final submission after category selection -->
+<form id="finalAddForm" method="post" asp-action="AddSource" class="hidden">
+    <input type="hidden" name="InputString" id="finalInputString" />
+    <input type="hidden" name="CategoryName" id="finalCategoryName" />
+</form>
 
 @section Scripts {
-    <script src="~/js/search-page.js?v=2"></script>
+    <script type="application/json" id="searchConfig">
+    {
+        "liveSearchUrl": "/api/v1/search/archive",
+        "addSourceUrl": "@Url.Action("AddSource", "Search")",
+        "getCategorySuggestionsUrl": "/api/v1/search/category-suggestions"
+    }
+    </script>
+    <script src="~/js/search-page.js?v=3"></script>
+    <script>
+        function switchTab(tabName) {
+            const liveTab = document.getElementById('tab-live');
+            const directTab = document.getElementById('tab-direct');
+            const liveBtn = document.getElementById('tabBtnLive');
+            const directBtn = document.getElementById('tabBtnDirect');
+
+            if (tabName === 'live') {
+                liveTab.classList.remove('hidden');
+                directTab.classList.add('hidden');
+                liveBtn.classList.add('text-netflix-red', 'border-b-2', 'border-netflix-red');
+                liveBtn.classList.remove('text-gray-400');
+                directBtn.classList.remove('text-netflix-red', 'border-b-2', 'border-netflix-red');
+                directBtn.classList.add('text-gray-400');
+            } else {
+                directTab.classList.remove('hidden');
+                liveTab.classList.add('hidden');
+                directBtn.classList.add('text-netflix-red', 'border-b-2', 'border-netflix-red');
+                directBtn.classList.remove('text-gray-400');
+                liveBtn.classList.remove('text-netflix-red', 'border-b-2', 'border-netflix-red');
+                liveBtn.classList.add('text-gray-400');
+            }
+        }
+    </script>
 }
