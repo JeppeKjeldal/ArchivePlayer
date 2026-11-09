@@ -18,6 +18,15 @@ All data is stored locally on your machine. No accounts, no telemetry, no cloud 
 - **Local SQLite database** — your library lives entirely on your machine
 - **User authentication** for multi-user setups on a single machine
 
+- ## Attribution
+
+If you fork, modify, or redistribute this project, please provide attribution by:
+- Crediting the original author
+- Linking to the original repository: https://github.com/[YourUsername]/ArchivePlayer
+- Noting that your work is derived from this project
+
+This helps support the original development and allows others to find the source project.
+
 ## Requirements
 
 - Windows 10 or 11 (64-bit)
