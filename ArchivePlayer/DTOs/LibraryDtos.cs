@@ -13,6 +13,7 @@ public class LibraryItemDto
     public string? TmdbPosterUrl { get; set; }
     public string CategoryName { get; set; } = string.Empty;
     public DateTime AddedAt { get; set; }
+    public int WatchProgressSeconds { get; set; }
 }
 
 /// <summary>

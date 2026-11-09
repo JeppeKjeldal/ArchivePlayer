@@ -68,33 +68,26 @@ public class ApiLibraryController : ControllerBase
     /// Get recently watched items
     /// </summary>
     [HttpGet("recently-watched")]
-    public async Task<ActionResult<List<RecentlyWatchedItemDto>>> GetRecentlyWatched([FromQuery] int limit = 10)
+    public async Task<ActionResult<IEnumerable<LibraryItemDto>>> GetRecentlyWatched([FromQuery] int limit = 10)
     {
         var user = await _userManager.GetUserAsync(User);
         if (user == null) return Unauthorized();
 
-        var recentlyWatched = await _context.UserMediaItems
-            .Where(umi => umi.UserId == user.Id && umi.LastWatched != null)
-            .OrderByDescending(umi => umi.LastWatched)
+        var items = await _context.UserMediaItems
+            .Where(u => u.UserId == user.Id && u.WatchProgressSeconds > 0 && !u.IsCompleted)
+            .OrderByDescending(u => u.LastWatched)
             .Take(limit)
-            .Include(umi => umi.MediaItem)
+            .Select(u => new LibraryItemDto
+            {
+                Id = u.Id,
+                Identifier = u.MediaItem.Identifier,
+                Title = u.MediaItem.Title,
+                CategoryName = u.CategoryName,
+                ThumbnailUrl = u.MediaItem.ThumbnailUrl,
+                TmdbPosterUrl = u.MediaItem.TMDBPosterUrl,
+                WatchProgressSeconds = u.WatchProgressSeconds
+            })
             .ToListAsync();
-
-        var items = recentlyWatched.Select(umi => new RecentlyWatchedItemDto
-        {
-            Id = umi.Id,
-            Identifier = umi.MediaItem.Identifier,
-            Title = umi.MediaItem.Title,
-            MediaType = umi.MediaItem.MediaType,
-            ThumbnailUrl = umi.MediaItem.ThumbnailUrl,
-            TmdbPosterUrl = umi.MediaItem.TMDBPosterUrl,
-            CategoryName = umi.CategoryName,
-            AddedAt = DateTime.UtcNow, // TODO: track actual added date
-            WatchProgressSeconds = umi.WatchProgressSeconds,
-            CurrentEpisodeFileName = umi.CurrentEpisodeFileName,
-            LastWatched = umi.LastWatched,
-            IsCompleted = umi.IsCompleted
-        }).ToList();
 
         return Ok(items);
     }
