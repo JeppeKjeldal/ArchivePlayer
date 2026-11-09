@@ -22,7 +22,7 @@ All data is stored locally on your machine. No accounts, no telemetry, no cloud 
 
 If you fork, modify, or redistribute this project, please provide attribution by:
 - Crediting the original author
-- Linking to the original repository: https://github.com/[YourUsername]/ArchivePlayer
+- Linking to the original repository: https://github.com/JeppeKjeldal/ArchivePlayer
 - Noting that your work is derived from this project
 
 This helps support the original development and allows others to find the source project.
