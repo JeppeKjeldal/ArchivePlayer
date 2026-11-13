@@ -25,21 +25,21 @@
                 <div>
                     <label class="block text-gray-300 text-sm font-semibold mb-2">Search Archive.org</label>
                     <div class="flex gap-2">
-                        <input type="text" id="searchInput" 
-                               class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" 
+                        <input type="text" id="searchInput"
+                               class="flex-1 bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition"
                                placeholder="e.g., spider-man, cartoon, movie" />
                         <button type="button" id="searchButton" class="bg-netflix-red hover:bg-red-700 text-white px-6 py-3 rounded font-semibold transition">
                             Search
                         </button>
                     </div>
                 </div>
-
-                <!-- Search Results Container -->
-                <div id="searchResults" class="hidden space-y-4">
-                    <h3 class="text-xl font-semibold text-white">Results</h3>
-                    <div id="resultsContainer" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div>
-                </div>
             </form>
+
+            <!-- Search Results Container -->
+            <div id="searchResults" class="hidden mt-6">
+                <h3 class="text-xl font-semibold text-white mb-4">Results</h3>
+                <div id="resultsContainer" class="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto pr-2"></div>
+            </div>
         </div>
 
         <!-- TAB 2: Add by Direct URL -->
@@ -128,7 +128,7 @@
         "getCategorySuggestionsUrl": "/api/v1/search/category-suggestions"
     }
     </script>
-    <script src="~/js/search-page.js?v=3"></script>
+    <script src="~/js/search-page.js?v=5"></script>
     <script>
         function switchTab(tabName) {
             const liveTab = document.getElementById('tab-live');
