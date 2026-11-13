@@ -29,7 +29,7 @@ namespace ArchivePlayer.Controllers
             {
                 var user = new ApplicationUser
                 {
-                    UserName = model.DisplayName,
+                    UserName = model.Email,
                     Email = model.Email,
                     DisplayName = model.DisplayName
                 };
@@ -117,7 +117,6 @@ namespace ArchivePlayer.Controllers
             if (userToUpdate == null) return Challenge();
 
             userToUpdate.DisplayName = model.DisplayName;
-            userToUpdate.UserName = model.DisplayName;
 
             var result = await _userManager.UpdateAsync(userToUpdate);
 
