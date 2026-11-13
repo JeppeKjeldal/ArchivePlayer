@@ -56,7 +56,12 @@ namespace ArchivePlayer.Controllers
         [HttpPost]
         public async Task<IActionResult> AddSource(SearchInputModel searchInputModel)
         {
-            if (!ModelState.IsValid)
+            if (string.IsNullOrWhiteSpace(searchInputModel.CategoryName))
+            {
+                searchInputModel.CategoryName = "Uncategorized";
+            }
+
+            if (string.IsNullOrWhiteSpace(searchInputModel.InputString))
             {
                 var user = await _userManager.GetUserAsync(User);
                 if (user != null)
@@ -67,6 +72,7 @@ namespace ArchivePlayer.Controllers
                         .Distinct()
                         .ToListAsync();
                 }
+                ModelState.AddModelError("InputString", "Please enter an Archive.org URL or identifier");
                 return View("Index", searchInputModel);
             }
 
@@ -74,14 +80,17 @@ namespace ArchivePlayer.Controllers
                 ? searchInputModel.InputString.Split("archive.org/details/")[1].TrimEnd('/')
                 : searchInputModel.InputString;
 
-            Console.WriteLine($"[DEBUG] Parsed Identifier: {identifier}");
+            Console.WriteLine($"[DEBUG] Parsed Identifier: {identifier}, Category: {searchInputModel.CategoryName}");
 
             await CreateNewMediaItem(identifier);
 
             var mediaItem = await _context.MediaItems.FirstOrDefaultAsync(m => m.Identifier == identifier);
             var currentUser = await _userManager.GetUserAsync(User);
 
-            await CreateNewUserMediaItem(mediaItem, currentUser.Id, searchInputModel.CategoryName);
+            if (mediaItem != null && currentUser != null)
+            {
+                await CreateNewUserMediaItem(mediaItem, currentUser.Id, searchInputModel.CategoryName);
+            }
 
             return RedirectToAction("Index", "Home");
         }
