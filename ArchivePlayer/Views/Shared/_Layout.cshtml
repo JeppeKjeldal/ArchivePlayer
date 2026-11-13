@@ -43,15 +43,14 @@
             <ul class="flex gap-6 text-sm">
                 <li><a href="/" class="hover:text-gray-300 transition">Home</a></li>
                 <li><a href="/Search" class="hover:text-gray-300 transition">Add Source</a></li>
-                <li><a href="/Library" class="hover:text-gray-300 transition">My Library</a></li>
             </ul>
         </div>
 
         <div class="flex items-center gap-4">
             @if (User.Identity.IsAuthenticated)
             {
-                <!-- User is logged in -->
                 <span class="text-gray-300 text-sm">@User.Identity.Name</span>
+                <a href="/Account/Profile" class="text-gray-300 hover:text-white text-sm transition">Profile</a>
                 <form asp-controller="Account" asp-action="Logout" method="post" class="inline">
                     <button type="submit" class="text-gray-300 hover:text-white text-sm transition">
                         Logout
@@ -60,7 +59,6 @@
             }
             else
             {
-                <!-- User is NOT logged in -->
                 <a href="/Account/Login" class="text-gray-300 hover:text-white text-sm transition">Login</a>
                 <a href="/Account/Register" class="bg-netflix-red text-white px-4 py-2 rounded text-sm font-semibold hover:bg-red-700 transition">
                     Register
