@@ -9,6 +9,13 @@
     <p class="text-gray-400 mb-8">Join ArchivePlayer and start building your library</p>
 
     <form asp-action="Register" method="post" class="space-y-6">
+        
+        <!-- Display Name -->
+        <div class="mb-4">
+            <label asp-for="DisplayName" class="block text-gray-300 text-sm font-semibold mb-2"></label>
+            <input asp-for="DisplayName" class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-3 focus:outline-none focus:border-netflix-red transition" placeholder="Your display name" />
+            <span asp-validation-for="DisplayName" class="text-red-500 text-xs mt-1"></span>
+        </div>
 
         <!-- Email -->
         <div>

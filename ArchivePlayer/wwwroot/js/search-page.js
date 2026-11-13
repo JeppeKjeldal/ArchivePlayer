@@ -4,7 +4,7 @@
         this.currentPage = 1;
         this.currentQuery = '';
         this.isSearching = false;
-        
+
         this.initializeEventListeners();
     }
 
@@ -14,70 +14,74 @@
     }
 
     initializeEventListeners() {
-        document.getElementById('tabSearch')?.addEventListener('click', () => this.switchTab('search'));
-        document.getElementById('tabUrl')?.addEventListener('click', () => this.switchTab('url'));
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.performSearch(true);
+                }
+            });
+        }
 
-        const searchInput = document.getElementById('searchQuery');
-        searchInput?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.performSearch(true);
-        });
+        const searchButton = document.getElementById('searchButton');
+        if (searchButton) {
+            searchButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.performSearch(true);
+            });
+        }
 
-        document.getElementById('searchButton')?.addEventListener('click', () => this.performSearch(true));
-
-        document.getElementById('loadMoreBtn')?.addEventListener('click', () => this.loadMore());
-
+        // Modal event listeners
         const modal = document.getElementById('categoryModal');
-        modal?.addEventListener('click', (e) => {
-            if (e.target === modal) this.closeCategoryModal();
-        });
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.closeCategoryModal();
+            });
+        }
 
-        document.getElementById('closeModalBtn')?.addEventListener('click', () => this.closeCategoryModal());
-    }
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => this.closeCategoryModal());
+        }
 
-    switchTab(tab) {
-        const tabSearch = document.getElementById('tabSearch');
-        const tabUrl = document.getElementById('tabUrl');
-        const contentSearch = document.getElementById('contentSearch');
-        const contentUrl = document.getElementById('contentUrl');
-
-        if (tab === 'search') {
-            tabSearch.className = 'flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition';
-            tabUrl.className = 'flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition';
-            contentSearch.classList.remove('hidden');
-            contentUrl.classList.add('hidden');
-        } else {
-            tabUrl.className = 'flex-1 py-3 text-center text-lg font-semibold text-netflix-red border-b-2 border-netflix-red transition';
-            tabSearch.className = 'flex-1 py-3 text-center text-lg font-semibold text-gray-400 hover:text-white transition';
-            contentUrl.classList.remove('hidden');
-            contentSearch.classList.add('hidden');
+        const confirmCategoryBtn = document.getElementById('confirmCategoryBtn');
+        if (confirmCategoryBtn) {
+            confirmCategoryBtn.addEventListener('click', () => this.submitFinalForm());
         }
     }
 
     async performSearch(reset = true) {
         if (this.isSearching) return;
 
-        const queryInput = document.getElementById('searchQuery');
+        const queryInput = document.getElementById('searchInput');
+        if (!queryInput) return;
+
         if (reset) {
             this.currentQuery = queryInput.value.trim();
             this.currentPage = 1;
             if (!this.currentQuery) return;
 
-            const resultsContainer = document.getElementById('searchResults');
-            const placeholder = document.getElementById('searchPlaceholder');
-            if (placeholder) placeholder.remove();
-            resultsContainer.innerHTML = '';
-            document.getElementById('loadMoreContainer').classList.add('hidden');
+            const resultsContainer = document.getElementById('resultsContainer');
+            if (resultsContainer) {
+                resultsContainer.innerHTML = '';
+            }
+
+            const searchResultsDiv = document.getElementById('searchResults');
+            if (searchResultsDiv) {
+                searchResultsDiv.classList.remove('hidden');
+            }
         } else {
             this.currentQuery = queryInput.value.trim();
             if (!this.currentQuery) return;
         }
 
         this.isSearching = true;
-        const loading = document.getElementById('searchLoading');
-        const loadMoreBtn = document.getElementById('loadMoreBtn');
-
-        loading.classList.remove('hidden');
-        if (loadMoreBtn) loadMoreBtn.disabled = true;
+        const searchButton = document.getElementById('searchButton');
+        if (searchButton) {
+            searchButton.disabled = true;
+            searchButton.textContent = 'Searching...';
+        }
 
         try {
             const url = `${this.config.liveSearchUrl}?query=${encodeURIComponent(this.currentQuery)}&page=${this.currentPage}`;
@@ -85,32 +89,31 @@
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
             const data = await response.json();
-            loading.classList.add('hidden');
+
+            if (searchButton) {
+                searchButton.disabled = false;
+                searchButton.textContent = 'Search';
+            }
             this.isSearching = false;
-            if (loadMoreBtn) loadMoreBtn.disabled = false;
+
+            const resultsContainer = document.getElementById('resultsContainer');
 
             if (data.results && data.results.length === 0 && this.currentPage === 1) {
-                document.getElementById('searchResults').innerHTML = '<div class="col-span-full text-center py-12 text-gray-500">No video results found. Try a different search term.</div>';
+                resultsContainer.innerHTML = '<div class="text-center py-8 text-gray-500">No video results found. Try a different search term.</div>';
                 return;
             }
 
-            const resultsContainer = document.getElementById('searchResults');
             this.renderResults(data.results, resultsContainer);
 
-            const loadMoreContainer = document.getElementById('loadMoreContainer');
-            if (data.hasMoreResults) {
-                loadMoreContainer.classList.remove('hidden');
-            } else {
-                loadMoreContainer.classList.add('hidden');
-            }
-
         } catch (error) {
-            loading.classList.add('hidden');
+            if (searchButton) {
+                searchButton.disabled = false;
+                searchButton.textContent = 'Search';
+            }
             this.isSearching = false;
-            if (loadMoreBtn) loadMoreBtn.disabled = false;
-
-            if (this.currentPage === 1) {
-                document.getElementById('searchResults').innerHTML = '<div class="col-span-full text-center py-12 text-red-500">An error occurred while searching.</div>';
+            const resultsContainer = document.getElementById('resultsContainer');
+            if (resultsContainer && this.currentPage === 1) {
+                resultsContainer.innerHTML = '<div class="text-center py-8 text-red-500">An error occurred while searching.</div>';
             }
             console.error('Search error:', error);
         }
@@ -120,17 +123,18 @@
         results.forEach(item => {
             const card = document.createElement('div');
             card.className = 'bg-gray-900 rounded-lg overflow-hidden border border-gray-800 hover:border-netflix-red transition group';
-            
-            const safeTitle = item.title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            
+
+            const safeTitle = (item.title || 'Unknown').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const thumbnail = item.thumbnailUrl || 'https://via.placeholder.com/300x450?text=No+Image';
+
             card.innerHTML = `
                 <div class="aspect-[2/3] bg-black relative">
-                    <img src="${item.thumbnailUrl}" alt="${item.title}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
-                    <div class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded uppercase">${item.mediaType}</div>
+                    <img src="${thumbnail}" alt="${safeTitle}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/300x450?text=No+Image'">
+                    <div class="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded uppercase">${item.mediaType || 'Video'}</div>
                 </div>
                 <div class="p-3">
-                    <h3 class="text-white font-semibold text-sm line-clamp-2 mb-3" title="${item.title}">${item.title}</h3>
-                    <button class="add-to-library-btn w-full bg-netflix-red hover:bg-red-700 text-white text-sm font-semibold py-2 rounded transition flex items-center justify-center gap-2" 
+                    <h3 class="text-white font-semibold text-sm line-clamp-2 mb-3" title="${safeTitle}">${safeTitle}</h3>
+                    <button type="button" class="add-to-library-btn w-full bg-netflix-red hover:bg-red-700 text-white text-sm font-semibold py-2 rounded transition flex items-center justify-center gap-2" 
                             data-identifier="${item.identifier}" 
                             data-title="${safeTitle}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -140,45 +144,48 @@
                     </button>
                 </div>
             `;
-            
+
             const btn = card.querySelector('.add-to-library-btn');
-            btn.addEventListener('click', () => this.openCategoryModal(item.identifier, item.title));
-            
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.openCategoryModal(item.identifier, item.title);
+            });
+
             container.appendChild(card);
         });
     }
 
-    loadMore() {
-        this.currentPage++;
-        this.performSearch(false);
-    }
-
     openCategoryModal(identifier, title) {
         const modal = document.getElementById('categoryModal');
-        const loading = document.getElementById('modalLoading');
-        const content = document.getElementById('modalContent');
-        const titleEl = document.getElementById('modalItemTitle');
+        const loading = document.getElementById('suggestionLoading');
+        const content = document.getElementById('suggestionContent');
         const chipsContainer = document.getElementById('suggestionChips');
-        const inputEl = document.getElementById('modalCategoryInput');
-        const form = document.getElementById('categoryForm');
+        const inputEl = document.getElementById('customCategoryInput');
+
+        const finalInputString = document.getElementById('finalInputString');
+        const finalCategoryName = document.getElementById('finalCategoryName');
+
+        if (!modal) return;
 
         modal.classList.remove('hidden');
+        modal.classList.add('flex');
         loading.classList.remove('hidden');
         content.classList.add('hidden');
         chipsContainer.innerHTML = '';
         inputEl.value = 'Uncategorized';
-        titleEl.textContent = title;
-        document.getElementById('modalIdentifier').value = identifier;
-        form.action = this.config.addSourceUrl;
+
+        if (finalInputString) finalInputString.value = identifier;
+        if (finalCategoryName) finalCategoryName.value = 'Uncategorized';
 
         fetch(`${this.config.getCategorySuggestionsUrl}?identifier=${encodeURIComponent(identifier)}`)
+            .then(response => response.json())
             .then(suggestions => {
                 loading.classList.add('hidden');
                 content.classList.remove('hidden');
 
                 if (suggestions && suggestions.length > 0) {
                     const uniqueGenres = [...new Set(suggestions.map(s => s.name))].slice(0, 5);
-                    
+
                     uniqueGenres.forEach(genre => {
                         const chip = document.createElement('button');
                         chip.type = 'button';
@@ -186,6 +193,8 @@
                         chip.textContent = genre;
                         chip.addEventListener('click', () => {
                             inputEl.value = genre;
+                            if (finalCategoryName) finalCategoryName.value = genre; // Opdater skjult form
+
                             document.querySelectorAll('#suggestionChips button').forEach(b => {
                                 b.classList.remove('bg-netflix-red', 'text-white');
                                 b.classList.add('bg-gray-800', 'text-gray-300');
@@ -206,8 +215,26 @@
             });
     }
 
+    submitFinalForm() {
+        const inputEl = document.getElementById('customCategoryInput');
+        const finalCategoryName = document.getElementById('finalCategoryName');
+
+        if (inputEl && finalCategoryName) {
+            finalCategoryName.value = inputEl.value || 'Uncategorized';
+        }
+
+        const form = document.getElementById('finalAddForm');
+        if (form) {
+            form.submit();
+        }
+    }
+
     closeCategoryModal() {
-        document.getElementById('categoryModal').classList.add('hidden');
+        const modal = document.getElementById('categoryModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
     }
 }
 

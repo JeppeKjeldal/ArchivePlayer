@@ -14,7 +14,11 @@ builder.Services.AddScoped<ArchiveSearchService>();
 builder.Services.AddSingleton<SettingsService>();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+{
+    string dbPath = GetSafeDatabasePath();
+    string connectionString = $"Data Source={dbPath};";
+    options.UseSqlite(connectionString);
+});
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     options.SignIn.RequireConfirmedAccount = false)
@@ -33,6 +37,8 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     db.Database.Migrate();
+
+    db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
 }
 
 // Configure the HTTP request pipeline.
@@ -54,3 +60,21 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
+
+string GetSafeDatabasePath()
+{
+    string localDbPath = Path.Combine(AppContext.BaseDirectory, "archiveplayer.db");
+    if (File.Exists(localDbPath))
+    {
+        return localDbPath;
+    }
+
+    string appDataFolder = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ArchivePlayer"
+    );
+
+    Directory.CreateDirectory(appDataFolder);
+
+    return Path.Combine(appDataFolder, "archiveplayer.db");
+}

@@ -24,7 +24,7 @@ namespace ArchivePlayer.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Challenge();
 
-            ViewBag.UserName = user.DisplayName ?? user.Email ?? "User";
+            ViewBag.UserName = user.DisplayName ?? user.UserName ?? "User";
 
             return View();
         }
